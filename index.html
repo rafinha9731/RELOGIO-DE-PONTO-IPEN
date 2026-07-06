@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ponto Eletrônico - Rafael Carvalho</title>
+    <!-- Tailwind CSS para um design moderno -->
+    <script src="https://jsdelivr.net"></script>
+    <!-- Biblioteca html2pdf.js para gerar o PDF -->
+    <script src="https://cloudflare.com"></script>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen flex flex-col items-center p-4 sm:p-8">
+
+    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-8">
+        
+        <!-- Cabeçalho, Funcionário e Relógio -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-6 gap-4">
+            <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
+                <h1 class="text-2xl font-bold text-gray-800 mt-1">Rafael Carvalho</h1>
+                <p class="text-sm text-gray-500">Controle de Ponto Individual</p>
+            </div>
+            <div class="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
+                <div id="live-clock" class="text-3xl font-mono font-bold text-blue-600">00:00:00</div>
+                <div id="live-date" class="text-sm text-gray-500 font-medium">Carregando data...</div>
+                <!-- Contador de Horas Diárias -->
+                <div class="mt-2 text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
+                    ⏱️ Hoje: <span id="horas-hoje" class="font-mono font-bold text-emerald-600">00h 00m</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel de Ações Rápidas -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center p-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer group">
+                <span class="text-2xl mb-1 group-hover:scale-110 transition">📥</span>
+                <span class="text-sm font-semibold text-emerald-800">Entrada</span>
+            </button>
+            <button onclick="registrarPonto('Almoço Saída')" class="flex flex-col items-center justify-center p-4 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition cursor-pointer group">
+                <span class="text-2xl mb-1 group-hover:scale-110 transition">☕</span>
+                <span class="text-sm font-semibold text-amber-800">Saída Almoço</span>
+            </button>
+            <button onclick="registrarPonto('Almoço Retorno')" class="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition cursor-pointer group">
+                <span class="text-2xl mb-1 group-hover:scale-110 transition">🔄</span>
+                <span class="text-sm font-semibold text-blue-800">Retorno Almoço</span>
+            </button>
+            <button onclick="registrarPonto('Saída')" class="flex flex-col items-center justify-center p-4 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition cursor-pointer group">
+                <span class="text-2xl mb-1 group-hover:scale-110 transition">📤</span>
+                <span class="text-sm font-semibold text-rose-800">Saída</span>
+            </button>
+        </div>
+
+        <!-- Formulário para Inserção Manual / Ajustes -->
+        <div class="bg-gray-50 border border-gray-150 rounded-xl p-4 space-y-3">
+            <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">🛠️ Inserir Ponto Esquecido / Manual</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+                    <input type="date" id="manual-data" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 mb-1">Horário (HH:MM)</label>
+                    <input type="time" id="manual-hora" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de Evento</label>
+                    <select id="manual-tipo" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                        <option value="Entrada">Entrada</option>
+                        <option value="Almoço Saída">Saída Almoço</option>
+                        <option value="Almoço Retorno">Retorno Almoço</option>
+                        <option value="Saída">Saída</option>
+                    </select>
+                </div>
+                <button onclick="salvarPontoManual()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-2 px-4 rounded-lg transition cursor-pointer">
+                    Salvar Registro
+                </button>
+            </div>
+        </div>
+
+        <!-- Seção do Histórico / Relatório -->
+        <div class="space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
+                <div class="flex gap-2">
+                    <button onclick="baixarPDF()" class="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold rounded-lg transition shadow-sm cursor-pointer flex items-center gap-1">
+                        📄 Baixar PDF
+                    </button>
+                    <button onclick="limparHistorico()" class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition border border-red-100 cursor-pointer">
+                        Limpar Tudo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bloco de Impressão (Será capturado exatamente assim pelo PDF) -->
+            <div class="overflow-x-auto border border-gray-100 rounded-xl bg-white p-2" id="area-relatorio">
+                <!-- Cabeçalho interno exclusivo do PDF -->
+                <div class="hidden pdf-header p-4 border-b border-gray-200 mb-4 justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800">Espelho de Ponto Eletrônico</h2>
+                        <p class="text-sm text-gray-600">Funcionário: <strong class="text-gray-900">Rafael Carvalho</strong></p>
+                    </div>
+                    <div class="text-right text-xs text-gray-400">
+                        Gerado em: <span id="pdf-data-geracao"></span>
+                    </div>
+                </div>
+
+                <table class="min-w-full divide-y divide-gray-100 text-left text-sm">
+                    <thead class="bg-gray-50 text-gray-600 font-medium">
+                        <tr>
+                            <th class="p-4">Data</th>
+                            <th class="p-4">Horário</th>
+                            <th class="p-4">Tipo de Evento</th>
+                            <th class="p-4 acao-col">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-corpo" class="divide-y divide-gray-100 text-gray-700">
+                        <!-- Linhas dinâmicas -->
+                    </tbody>
+                </table>
+                <div id="sem-dados" class="text-center py-12 text-gray-400 hidden">
+                    Nenhum ponto registrado até o momento.
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Lógica do Sistema -->
+    <script>
+        // Atualiza Relógio e Data em tempo real
+        function atualizarRelogio() {
+            const agora = new Date();
+            document.getElementById('live-clock').innerText = agora.toLocaleTimeString('pt-BR');
+            document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
+
+        // Inicializa dados do localStorage
+        let registros = JSON.parse(localStorage.getItem('pontosWeb_Rafael')) || [];
+
+        // Define a data atual padrão no formulário manual para facilitar o uso
+        document.getElementById('manual-data').value = new Date().toISOString().slice(0, 10);
+
+        // Converte string de hora (HH:MM:SS ou HH:MM) para minutos totais desde o início do dia
+        function converterParaMinutos(horaStr) {
+            const partes = horaStr.split(':');
+            return (parseInt(partes[0], 10) * 60) + parseInt(partes[1], 10);
+        }
+
+        // Calcula horas trabalhadas hoje
+        function calcularHorasHoje() {
+            const hojeStr = new Date().toLocaleDateString('pt-BR');
+            // Filtra e ordena os pontos do dia atual pelo horário cronológico
+            const pontosHoje = registros
+                .filter(reg => reg.data === hojeStr)
+                .sort((a, b) => a.hora.localeCompare(b.hora));
+
+            let minutosTrabalhados = 0;
+            let horaEntradaAtiva = null;
+
+            pontosHoje.forEach(ponto => {
+                if (ponto.tipo === 'Entrada' || ponto.tipo === 'Almoço Retorno') {
+                    horaEntradaAtiva = converterParaMinutos(ponto.hora);
+                } else if ((ponto.tipo === 'Almoço Saída' || ponto.tipo === 'Saída') && horaEntradaAtiva !== null) {
+                    minutosTrabalhados += (converterParaMinutos(ponto.hora) - horaEntradaAtiva);
