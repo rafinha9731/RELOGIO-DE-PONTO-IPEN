@@ -18,7 +18,7 @@
             <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
                 <h1 class="text-2xl font-bold text-gray-800 mt-1">Rafael Carvalho</h1>
-                <p class="text-sm text-gray-500">Controle de Ponto Individual</p>
+                <p class="text-sm text-gray-500">Controle de Ponto Individual (Últimos 7 dias)</p>
             </div>
             <div class="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
                 <div id="live-clock" class="text-3xl font-mono font-bold text-blue-600">00:00:00</div>
@@ -118,7 +118,7 @@
                     </tbody>
                 </table>
                 <div id="sem-dados" class="text-center py-12 text-gray-400 hidden">
-                    Nenhum ponto registrado até o momento.
+                    Nenhum ponto registrado nos últimos 7 dias.
                 </div>
             </div>
         </div>
@@ -138,31 +138,35 @@
         setInterval(atualizarRelogio, 1000);
         atualizarRelogio();
 
-        // Inicializa dados do localStorage
-        let registros = JSON.parse(localStorage.getItem('pontosWeb_Rafael')) || [];
+        // Inicializa o banco de dados interno (LocalStorage)
+        let registros = JSON.parse(localStorage.getItem('pontosWeb_Rafael_v2')) || [];
 
         // Define a data atual padrão no formulário manual para facilitar o uso
         document.getElementById('manual-data').value = new Date().toISOString().slice(0, 10);
 
-        // Converte string de hora (HH:MM:SS ou HH:MM) para minutos totais desde o início do dia
+        // Converte string de hora (HH:MM) para minutos totais
         function converterParaMinutos(horaStr) {
             const partes = horaStr.split(':');
             return (parseInt(partes[0], 10) * 60) + parseInt(partes[1], 10);
         }
 
-        // Calcula horas trabalhadas hoje
-        function calcularHorasHoje() {
-            const hojeStr = new Date().toLocaleDateString('pt-BR');
-            // Filtra e ordena os pontos do dia atual pelo horário cronológico
-            const pontosHoje = registros
-                .filter(reg => reg.data === hojeStr)
-                .sort((a, b) => a.hora.localeCompare(b.hora));
+        // Função para limpar dados com mais de 7 dias automaticamente
+        function limparDadosAntigos() {
+            const hoje = new Date();
+            hoje.setHours(0,0,0,0);
+            
+            // Filtra o banco mantendo apenas os pontos que estão dentro dos 7 dias
+            registros = registros.filter(reg => {
+                const [dia, mes, ano] = reg.data.split('/');
+                const dataPonto = new Date(ano, mes - 1, dia);
+                dataPonto.setHours(0,0,0,0);
+                
+                const diferencaTempo = hoje.getTime() - dataPonto.getTime();
+                const diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+                
+                return diferencaDias <= 7;
+            });
+            
+            localStorage.setItem('pontosWeb_Rafael_v2', JSON.stringify(registros));
+        }
 
-            let minutosTrabalhados = 0;
-            let horaEntradaAtiva = null;
-
-            pontosHoje.forEach(ponto => {
-                if (ponto.tipo === 'Entrada' || ponto.tipo === 'Almoço Retorno') {
-                    horaEntradaAtiva = converterParaMinutos(ponto.hora);
-                } else if ((ponto.tipo === 'Almoço Saída' || ponto.tipo === 'Saída') && horaEntradaAtiva !== null) {
-                    minutosTrabalhados += (converterParaMinutos(ponto.hora) - horaEntradaAtiva);
