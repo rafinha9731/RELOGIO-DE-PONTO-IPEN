@@ -30,7 +30,7 @@
             </div>
         </div>
 
-        <!-- Painel de Ações Rápidas -->
+        <!-- Painel de Ações Rápidas (Tempo Real) -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center p-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer group">
                 <span class="text-2xl mb-1 group-hover:scale-110 transition">📥</span>
@@ -138,14 +138,15 @@
         setInterval(atualizarRelogio, 1000);
         atualizarRelogio();
 
-        // Inicializa o banco de dados interno (LocalStorage)
-        let registros = JSON.parse(localStorage.getItem('pontosWeb_Rafael_v2')) || [];
+        // Inicializa o banco de dados interno (LocalStorage) com nova chave limpa para evitar conflitos antigos
+        let registros = JSON.parse(localStorage.getItem('pontosWeb_Rafael_v3')) || [];
 
         // Define a data atual padrão no formulário manual para facilitar o uso
         document.getElementById('manual-data').value = new Date().toISOString().slice(0, 10);
 
-        // Converte string de hora (HH:MM) para minutos totais
+        // Converte string de hora (HH:MM) para minutos totais de forma segura
         function converterParaMinutos(horaStr) {
+            if (!horaStr) return 0;
             const partes = horaStr.split(':');
             return (parseInt(partes[0], 10) * 60) + parseInt(partes[1], 10);
         }
@@ -155,18 +156,12 @@
             const hoje = new Date();
             hoje.setHours(0,0,0,0);
             
-            // Filtra o banco mantendo apenas os pontos que estão dentro dos 7 dias
             registros = registros.filter(reg => {
-                const [dia, mes, ano] = reg.data.split('/');
-                const dataPonto = new Date(ano, mes - 1, dia);
-                dataPonto.setHours(0,0,0,0);
-                
-                const diferencaTempo = hoje.getTime() - dataPonto.getTime();
-                const diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
-                
-                return diferencaDias <= 7;
-            });
-            
-            localStorage.setItem('pontosWeb_Rafael_v2', JSON.stringify(registros));
-        }
-
+                try {
+                    const partes = reg.data.split('/');
+                    if(partes.length !== 3) return false;
+                    
+                    const dataPonto = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
+                    dataPonto.setHours(0,0,0,0);
+                    
+                    const diferencaTempo = hoje.getTime() - dataPonto.getTime();
