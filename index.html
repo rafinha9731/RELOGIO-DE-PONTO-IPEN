@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ponto Eletrônico - Rafael Carvalho</title>
-    <!-- Tailwind CSS para um design moderno -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- Tailwind CSS Oficial v3 para total estabilidade de interface -->
+    <script src="https://tailwindcss.com"></script>
     <!-- Biblioteca html2pdf.js para gerar o PDF -->
     <script src="https://cloudflare.com"></script>
 </head>
@@ -91,9 +91,9 @@
                 </div>
             </div>
 
-            <!-- Bloco de Impressão (Será capturado exatamente assim pelo PDF) -->
+            <!-- Bloco de Impressão -->
             <div class="overflow-x-auto border border-gray-100 rounded-xl bg-white p-2" id="area-relatorio">
-                <!-- Cabeçalho interno exclusivo do PDF -->
+                <!-- Cabeçalho exclusivo do PDF -->
                 <div class="hidden pdf-header p-4 border-b border-gray-200 mb-4 justify-between items-center">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">Espelho de Ponto Eletrônico</h2>
@@ -127,7 +127,7 @@
 
     <!-- Lógica do Sistema -->
     <script>
-        // Atualiza Relógio e Data em tempo real
+        // Relógio em tempo real
         function atualizarRelogio() {
             const agora = new Date();
             document.getElementById('live-clock').innerText = agora.toLocaleTimeString('pt-BR');
@@ -138,30 +138,38 @@
         setInterval(atualizarRelogio, 1000);
         atualizarRelogio();
 
-        // Inicializa o banco de dados interno (LocalStorage) com nova chave limpa para evitar conflitos antigos
-        let registros = JSON.parse(localStorage.getItem('pontosWeb_Rafael_v3')) || [];
+        // Inicializa o banco de dados interno
+        let registros = JSON.parse(localStorage.getItem('banco_ponto_rafael_v4')) || [];
 
-        // Define a data atual padrão no formulário manual para facilitar o uso
-        document.getElementById('manual-data').value = new Date().toISOString().slice(0, 10);
+        // Define a data de hoje no input manual
+        function obterDataHojeISO() {
+            const hoje = new Date();
+            const tzOffset = hoje.getTimezoneOffset() * 60000;
+            return (new Date(hoje.getTime() - tzOffset)).toISOString().slice(0, 10);
+        }
+        document.getElementById('manual-data').value = obterDataHojeISO();
 
-        // Converte string de hora (HH:MM) para minutos totais de forma segura
+        // Converte "HH:MM" para minutos totais do dia
         function converterParaMinutos(horaStr) {
             if (!horaStr) return 0;
-            const partes = horaStr.split(':');
-            return (parseInt(partes[0], 10) * 60) + parseInt(partes[1], 10);
+            const [horas, minutos] = horaStr.split(':').map(Number);
+            return (horas * 60) + minutos;
         }
 
-        // Função para limpar dados com mais de 7 dias automaticamente
+        // Formata data ISO (AAAA-MM-DD) para exibição brasileira (DD/MM/AAAA)
+        function formatarDataBR(dataISO) {
+            const [ano, mes, dia] = dataISO.split('-');
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        // Executa a limpeza automática dos dados maiores que 7 dias
         function limparDadosAntigos() {
             const hoje = new Date();
             hoje.setHours(0,0,0,0);
-            
+
             registros = registros.filter(reg => {
-                try {
-                    const partes = reg.data.split('/');
-                    if(partes.length !== 3) return false;
-                    
-                    const dataPonto = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
-                    dataPonto.setHours(0,0,0,0);
-                    
-                    const diferencaTempo = hoje.getTime() - dataPonto.getTime();
+                const [ano, mes, dia] = reg.dataIso.split('-').map(Number);
+                const dataPonto = new Date(ano, mes - 1, dia);
+                dataPonto.setHours(0,0,0,0);
+
+                const difTempo = hoje.getTime() - dataPonto.getTime();
