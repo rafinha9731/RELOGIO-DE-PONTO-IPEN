@@ -117,7 +117,7 @@
 
     <script>
         // =========================================================================
-        // 1. RELÓGIO E DATA ATUAL (Executa primeiro para garantir funcionamento da UI)
+        // 1. RELÓGIO E DATA ATUAL (Interface Visual Continua Ativa)
         // =========================================================================
         function atualizarRelogio() {
             try {
@@ -133,6 +133,15 @@
         setInterval(atualizarRelogio, 1000);
         atualizarRelogio();
 
+        // Helper para extrair a data correta no formato YYYY-MM-DD ignorando deslocamentos UTC do toISOString
+        function obterDataLocalISO(dataObjeto) {
+            const d = dataObjeto || new Date();
+            const ano = d.getFullYear();
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const dia = String(d.getDate()).padStart(2, '0');
+            return `${ano}-${mes}-${dia}`;
+        }
+
         // =========================================================================
         // 2. CONFIGURAÇÕES DO FIREBASE (Insira os dados do seu Firebase Console aqui)
         // =========================================================================
@@ -145,16 +154,14 @@
             appId: "SEU_APP_ID"
         };
 
-        // Certifique-se de que este é o nome exato da sua coleção no Cloud Firestore
         const NOME_COLECAO = "pontos_rafael"; 
 
         let db;
         let colecaoPontos;
 
-        // Inicialização blindada contra travamento total do script
         try {
             if (typeof firebase === 'undefined') {
-                throw new Error("O SDK do Firebase não foi carregado. Verifique a conexão de rede ou as tags script.");
+                throw new Error("O SDK do Firebase não foi carregado corretamente.");
             }
 
             if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI" && firebaseConfig.apiKey !== "") {
@@ -162,22 +169,22 @@
                 db = firebase.firestore();
                 colecaoPontos = db.collection(NOME_COLECAO);
             } else {
-                console.warn("Chaves do Firebase ausentes. Insira suas credenciais em 'firebaseConfig' para carregar o banco.");
+                console.warn("Chaves do Firebase ausentes. Preencha o objeto firebaseConfig.");
             }
         } catch (error) {
             console.error("Erro ao conectar com Firebase:", error.message);
         }
 
         // =========================================================================
-        // 3. LÓGICA DO SISTEMA DE PONTO
+        // 3. LÓGICA DO SISTEMA DE PONTO (DEBUGADA)
         // =========================================================================
         function registrarPonto(tipo) {
             if (!colecaoPontos) {
-                alert("Erro: O sistema não está conectado ao Firebase. Atualize o 'firebaseConfig' no código.");
+                alert("Erro: O sistema não está conectado ao Firebase. Configure suas credenciais no código.");
                 return;
             }
             const agora = new Date();
-            const dataStr = agora.toISOString().split('T')[0];
+            const dataStr = obterDataLocalISO(agora); // Corrigido para fuso horário correto
             const horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
             salvarNoFirebase(dataStr, horaStr, tipo);
@@ -234,7 +241,7 @@
                 let totalDias = querySnapshot.size;
                 let somaMinutosGeral = 0;
 
-                const hojeStr = new Date().toISOString().split('T')[0];
+                const hojeStr = obterDataLocalISO(); // Corrigido para fuso horário correto
                 const limite30Dias = new Date();
                 limite30Dias.setDate(limite30Dias.getDate() - 30);
 
@@ -272,7 +279,7 @@
                 const mediaMinutos = totalDias > 0 ? Math.round(somaMinutosGeral / totalDias) : 0;
                 document.getElementById('media-horas').innerText = formatarMinutos(mediaMinutos);
             }).catch((err) => {
-                console.error("Erro ao carregar dados (Regras de Segurança ou Chaves incorretas):", err);
+                console.error("Erro ao carregar dados do Firestore:", err);
             });
         }
 
