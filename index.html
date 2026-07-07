@@ -117,7 +117,7 @@
 
     <script>
         // =========================================================================
-        // 1. RELÓGIO E DATA ATUAL (Interface Visual Continua Ativa)
+        // 1. RELÓGIO E DATA ATUAL
         // =========================================================================
         function atualizarRelogio() {
             try {
@@ -133,7 +133,6 @@
         setInterval(atualizarRelogio, 1000);
         atualizarRelogio();
 
-        // Helper para extrair a data correta no formato YYYY-MM-DD ignorando deslocamentos UTC do toISOString
         function obterDataLocalISO(dataObjeto) {
             const d = dataObjeto || new Date();
             const ano = d.getFullYear();
@@ -143,18 +142,19 @@
         }
 
         // =========================================================================
-        // 2. CONFIGURAÇÕES DO FIREBASE (Insira os dados do seu Firebase Console aqui)
+        // 2. CONFIGURAÇÕES DO FIREBASE (Validadas)
         // =========================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
-  authDomain: "pontoeletronicorafael.firebaseapp.com",
-  projectId: "pontoeletronicorafael",
-  storageBucket: "pontoeletronicorafael.firebasestorage.app",
-  messagingSenderId: "737764359469",
-  appId: "1:737764359469:web:8b2e6c352c948f7f25a7a4",
-  measurementId: "G-6ZXKLCBQ00"
+            authDomain: "pontoeletronicorafael.firebaseapp.com",
+            projectId: "pontoeletronicorafael",
+            storageBucket: "pontoeletronicorafael.firebasestorage.app",
+            messagingSenderId: "737764359469",
+            appId: "1:737764359469:web:8b2e6c352c948f7f25a7a4",
+            measurementId: "G-6ZXKLCBQ00"
         };
 
+        // ATENÇÃO: Certifique-se de que no seu Firebase Console a coleção está escrita exatamente assim (maiúsculas/minúsculas)
         const NOME_COLECAO = "PontoEletronicoRafael"; 
 
         let db;
@@ -177,15 +177,15 @@
         }
 
         // =========================================================================
-        // 3. LÓGICA DO SISTEMA DE PONTO (DEBUGADA)
+        // 3. LÓGICA DO SISTEMA DE PONTO
         // =========================================================================
         function registrarPonto(tipo) {
             if (!colecaoPontos) {
-                alert("Erro: O sistema não está conectado ao Firebase. Configure suas credenciais no código.");
+                alert("Erro: O sistema não está conectado ao Firebase.");
                 return;
             }
             const agora = new Date();
-            const dataStr = obterDataLocalISO(agora); // Corrigido para fuso horário correto
+            const dataStr = obterDataLocalISO(agora);
             const horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
             salvarNoFirebase(dataStr, horaStr, tipo);
@@ -226,14 +226,15 @@
                 })
                 .catch((error) => {
                     console.error("Erro ao salvar no Firestore:", error);
-                    alert("Falha ao salvar. Verifique se as Regras de Segurança do Firebase expiraram.");
+                    alert("Falha ao salvar. Verifique as Regras de Segurança do seu Firebase.");
                 });
         }
 
         function carregarHistorico() {
             if (!colecaoPontos) return;
 
-            colecaoPontos.orderBy('data', 'desc').get().then((querySnapshot) => {
+            // CORREÇÃO CRÍTICA: Ordenando pelo ID do documento (Data) para garantir a leitura de dados antigos sem o campo 'data' interno
+            colecaoPontos.orderBy(firebase.firestore.FieldPath.documentId(), 'desc').get().then((querySnapshot) => {
                 const tabela = document.getElementById('historico-tabela');
                 tabela.innerHTML = '';
 
@@ -242,7 +243,7 @@
                 let totalDias = querySnapshot.size;
                 let somaMinutosGeral = 0;
 
-                const hojeStr = obterDataLocalISO(); // Corrigido para fuso horário correto
+                const hojeStr = obterDataLocalISO();
                 const limite30Dias = new Date();
                 limite30Dias.setDate(limite30Dias.getDate() - 30);
 
@@ -281,6 +282,7 @@
                 document.getElementById('media-horas').innerText = formatarMinutos(mediaMinutos);
             }).catch((err) => {
                 console.error("Erro ao carregar dados do Firestore:", err);
+                alert("Erro ao acessar o banco. Verifique se o nome da coleção está correto ou se as Regras de Segurança do Firebase expiraram.");
             });
         }
 
