@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
+    <!-- Firebase SDK v8 -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
@@ -14,6 +15,7 @@
 
     <div class="max-w-4xl w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-8">
         
+        <!-- Cabeçalho e Métricas -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-6 gap-4">
             <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
@@ -41,6 +43,7 @@
             </div>
         </div>
 
+        <!-- Botões de Registro Rápido -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center h-40 p-6 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl transition cursor-pointer group shadow-sm">
                 <span class="text-4xl mb-2 group-hover:scale-110 transition">📥</span>
@@ -60,6 +63,7 @@
             </button>
         </div>
 
+        <!-- Seção de Ponto Manual -->
         <div class="bg-gray-50 border border-gray-150 rounded-xl p-4 space-y-3">
             <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">🛠️ Inserir Ponto Esquecido / Manual</h3>
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -88,11 +92,12 @@
             </div>
         </div>
 
+        <!-- Histórico de Registros -->
         <div class="space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
                 <button onclick="exportarPDF()" class="bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1 shadow-sm">
-                    🖨️ Exportar PDF Formal
+                    🖨️ Exportar PDF Clean
                 </button>
             </div>
             <div class="overflow-x-auto border border-gray-100 rounded-xl bg-white shadow-sm">
@@ -145,7 +150,7 @@
         }
 
         // =========================================================================
-        // 2. CONFIGURAÇÕES DO FIREBASE (Chaves Ativas)
+        // 2. CONFIGURAÇÕES DO FIREBASE
         // =========================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
@@ -248,7 +253,7 @@
                 const hojeStr = obterDataLocalISO();
                 const limite30Dias = new Date();
                 limite30Dias.setDate(limite30Dias.getDate() - 30);
-                limite30Dias.setHours(0, 0, 0, 0); // DEBUG: Zera horas para comparação de data exata
+                limite30Dias.setHours(0, 0, 0, 0);
 
                 const documentos = [];
                 querySnapshot.forEach(doc => documentos.push({ id: doc.id, ...doc.data() }));
@@ -261,7 +266,7 @@
 
                     const dataDoc = new Date(dataDocStr + 'T00:00:00');
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
-                    if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
+                    if (dataDoc >= limite30Dias) minutos30Dias += minutesTrabalhados;
 
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-gray-50 transition";
@@ -326,9 +331,6 @@
             return tempoBruto > 0 ? tempoBruto : 0;
         }
 
-        // =========================================================================
-        // AUXILIARES DE CONVERSÃO E FORMATAÇÃO
-        // =========================================================================
         function converterParaMinutos(horaStr) {
             if (!horaStr || !horaStr.includes(':')) return 0;
             const [h, m] = horaStr.split(':').map(Number);
@@ -356,7 +358,7 @@
         }
 
         // =========================================================================
-        // 4. EXPORTAÇÃO EXCLUSIVA E FORMAL PARA PDF
+        // 4. EXPORTAÇÃO EXCLUSIVA E TOTALMENTE CLEAN PARA PDF
         // =========================================================================
         function exportarPDF() {
             const linhasOriginais = document.querySelectorAll('#historico-tabela tr');
@@ -367,94 +369,59 @@
             }
 
             const elementoPDF = document.createElement('div');
-            elementoPDF.style.padding = '18px';
+            elementoPDF.style.padding = '24px';
             elementoPDF.style.fontFamily = 'Arial, sans-serif';
             elementoPDF.style.color = '#111';
             elementoPDF.style.backgroundColor = '#fff';
 
             const agora = new Date();
             const dataEmissao = agora.toLocaleDateString('pt-BR');
-            const mesAnoExtenso = agora.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
+            // Cabeçalho ultra clean focado apenas no essencial
             let conteudoHTML = `
-                <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 18px;">
-                    <h1 style="font-size: 20px; font-weight: bold; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Espelho de Registro de Ponto Individual</h1>
-                    <p style="font-size: 11px; margin: 4px 0 0 0; color: #555;">Documento gerado eletronicamente em ${dataEmissao}</p>
+                <div style="border-bottom: 1px solid #111; padding-bottom: 12px; margin-bottom: 24px;">
+                    <h1 style="font-size: 18px; font-weight: bold; margin: 0; color: #111; letter-spacing: 0.5px;">Espelho de Ponto Individual</h1>
+                    <p style="font-size: 12px; margin: 6px 0 0 0; color: #333;">
+                        <strong>Funcionário:</strong> Rafael Carvalho <span style="margin-left: 24px; color: #ccc;">|</span> <strong style="margin-left: 24px;">Emissão:</strong> ${dataEmissao}
+                    </p>
                 </div>
 
-                <table style="width: 100%; font-size: 11px; margin-bottom: 20px; border: 1px solid #ccc; background-color: #fafafa; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #ddd; width: 50%;"><strong>COLABORADOR:</strong> Rafael Carvalho</td>
-                        <td style="padding: 6px 10px; border: 1px solid #ddd; width: 50%;"><strong>PERÍODO DE REFERÊNCIA:</strong> ${mesAnoExtenso.toUpperCase()}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #ddd;"><strong>EMPRESA:</strong> [Inserir Nome da Empresa]</td>
-                        <td style="padding: 6px 10px; border: 1px solid #ddd;"><strong>C.N.P.J:</strong> __.___.___/____-__</td>
-                    </tr>
-                </table>
-
-                <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 25px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 40px;">
                     <thead>
-                        <tr style="background-color: #e5e7eb; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
-                            <th style="padding: 7px; text-align: left; border: 1px solid #bbb;">Data</th>
-                            <th style="padding: 7px; text-align: center; border: 1px solid #bbb;">Entrada</th>
-                            <th style="padding: 7px; text-align: center; border: 1px solid #bbb;">Intervalo (Saída ➔ Retorno)</th>
-                            <th style="padding: 7px; text-align: center; border: 1px solid #bbb;">Saída</th>
-                            <th style="padding: 7px; text-align: right; border: 1px solid #bbb;">Total Diário</th>
+                        <tr style="background-color: #f3f4f6; border-top: 1px solid #111; border-bottom: 1px solid #111;">
+                            <th style="padding: 8px; text-align: left; border: 1px solid #ddd; width: 20%;">Data</th>
+                            <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 15%;">Entrada</th>
+                            <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 30%;">Intervalo (Saída ➔ Retorno)</th>
+                            <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 15%;">Saída</th>
+                            <th style="padding: 8px; text-align: right; border: 1px solid #ddd; width: 20%;">Total Diário</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
 
             linhasOriginais.forEach(linha => {
-                const colunas = AppColumns = linha.querySelectorAll('td');
+                const colunas = linha.querySelectorAll('td');
                 if (colunas.length >= 5) {
                     conteudoHTML += `
-                        <tr style="border-bottom: 1px solid #ddd;">
-                            <td style="padding: 6px 7px; border: 1px solid #ddd;">${colunas[0].innerText}</td>
-                            <td style="padding: 6px 7px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[1].innerText}</td>
-                            <td style="padding: 6px 7px; text-align: center; border: 1px solid #ddd; color: #444;">${colunas[2].innerText}</td>
-                            <td style="padding: 6px 7px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[3].innerText}</td>
-                            <td style="padding: 6px 7px; text-align: right; border: 1px solid #ddd; font-weight: bold;">${colunas[4].innerText}</td>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 8px; border: 1px solid #ddd;">${colunas[0].innerText}</td>
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[1].innerText}</td>
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #444;">${colunas[2].innerText}</td>
+                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[3].innerText}</td>
+                            <td style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">${colunas[4].innerText}</td>
                         </tr>
                     `;
                 }
             });
 
-            const totalDias = document.getElementById('total-dias').innerText;
-            const mediaHoras = document.getElementById('media-horas').innerText;
-            const horas30 = document.getElementById('horas-30-dias').innerText;
-
             conteudoHTML += `
                     </tbody>
                 </table>
 
-                <table style="width: 100%; font-size: 11px; border: 1px solid #bbb; background-color: #fafafa; padding: 8px; margin-bottom: 50px; border-collapse: collapse;">
-                    <tr style="background-color: #f3f4f6;"><td colspan="2" style="padding: 5px 8px; font-weight: bold; border-bottom: 1px solid #bbb;">RESUMO DE CARGA HORÁRIA</td></tr>
-                    <tr>
-                        <td style="padding: 6px 8px; width: 50%;">• Total de Dias Computados: <strong>${totalDias}</strong></td>
-                        <td style="padding: 6px 8px; width: 50%;">• Média Diária de Trabalho: <strong>${mediaHoras}</strong></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 8px;" colspan="2">• Horas acumuladas nos últimos 30 dias: <strong>${horas30}</strong></td>
-                    </tr>
-                </table>
-
-                <p style="font-size: 10px; color: #444; text-align: justify; line-height: 1.4; margin-bottom: 50px;">
-                    Declaro para os devidos fins que as informações constantes neste espelho de ponto refletem fielmente os horários por mi cumpridos no período citado, estando em conformidade com as diretrizes de controle interno.
-                </p>
-
-                <table style="width: 100%; margin-top: 40px; font-size: 11px;">
-                    <tr>
-                        <td style="width: 45%; text-align: center; border-top: 1px solid #000; padding-top: 5px;">
-                            <br><strong>Rafael Carvalho</strong><br>Funcionário
-                        </td>
-                        <td style="width: 10%;"></td>
-                        <td style="width: 45%; text-align: center; border-top: 1px solid #000; padding-top: 5px;">
-                            <br><strong>Responsável Legal / RH</strong><br>Empresa
-                        </td>
-                    </tr>
-                </table>
+                <!-- Linha de validação discreta no rodapé -->
+                <div style="margin-top: 60px; width: 240px; text-align: center; border-top: 1px solid #111; padding-top: 6px; font-size: 11px; color: #222;">
+                    <strong>Rafael Carvalho</strong><br><span style="color: #666; font-size: 10px;">Assinatura do Funcionário</span>
+                </div>
             `;
 
             elementoPDF.innerHTML = conteudoHTML;
