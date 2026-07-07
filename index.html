@@ -4,16 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ponto Eletrônico - Rafael Carvalho</title>
-    <!-- Tailwind CSS Oficial v3 para total estabilidade de interface -->
-    <script src="https://tailwindcss.com"></script>
-    <!-- Biblioteca html2pdf.js para gerar o PDF -->
-    <script src="https://cloudflare.com"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen flex flex-col items-center p-4 sm:p-8">
 
     <div class="max-w-4xl w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-8">
         
-        <!-- Cabeçalho, Funcionário e Relógio -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-6 gap-4">
             <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
@@ -23,14 +20,12 @@
             <div class="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
                 <div id="live-clock" class="text-3xl font-mono font-bold text-blue-600">00:00:00</div>
                 <div id="live-date" class="text-sm text-gray-500 font-medium">Carregando data...</div>
-                <!-- Contador de Horas Diárias -->
                 <div class="mt-2 text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
                     ⏱️ Hoje: <span id="horas-hoje" class="font-mono font-bold text-emerald-600">00h 00m</span>
                 </div>
             </div>
         </div>
 
-        <!-- Painel de Ações Rápidas (Tempo Real) -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center p-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition cursor-pointer group">
                 <span class="text-2xl mb-1 group-hover:scale-110 transition">📥</span>
@@ -50,7 +45,6 @@
             </button>
         </div>
 
-        <!-- Formulário para Inserção Manual / Ajustes -->
         <div class="bg-gray-50 border border-gray-150 rounded-xl p-4 space-y-3">
             <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">🛠️ Inserir Ponto Esquecido / Manual</h3>
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -77,7 +71,6 @@
             </div>
         </div>
 
-        <!-- Seção do Histórico / Relatório -->
         <div class="space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
@@ -91,9 +84,7 @@
                 </div>
             </div>
 
-            <!-- Bloco de Impressão -->
             <div class="overflow-x-auto border border-gray-100 rounded-xl bg-white p-2" id="area-relatorio">
-                <!-- Cabeçalho exclusivo do PDF -->
                 <div class="hidden pdf-header p-4 border-b border-gray-200 mb-4 justify-between items-center">
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">Espelho de Ponto Eletrônico</h2>
@@ -114,8 +105,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabela-corpo" class="divide-y divide-gray-100 text-gray-700">
-                        <!-- Linhas dinâmicas -->
-                    </tbody>
+                        </tbody>
                 </table>
                 <div id="sem-dados" class="text-center py-12 text-gray-400 hidden">
                     Nenhum ponto registrado nos últimos 7 dias.
@@ -125,7 +115,6 @@
 
     </div>
 
-    <!-- Lógica do Sistema -->
     <script>
         // Relógio em tempo real
         function atualizarRelogio() {
@@ -149,7 +138,7 @@
         }
         document.getElementById('manual-data').value = obterDataHojeISO();
 
-        // Converte "HH:MM" para minutos totais do dia
+        // Converte "HH:MM" para minutos totais do dia para cálculos
         function converterParaMinutos(horaStr) {
             if (!horaStr) return 0;
             const [horas, minutos] = horaStr.split(':').map(Number);
@@ -173,3 +162,182 @@
                 dataPonto.setHours(0,0,0,0);
 
                 const difTempo = hoje.getTime() - dataPonto.getTime();
+                const difDias = difTempo / (1000 * 3600 * 24);
+                
+                return difDias <= 7; // Mantém apenas os últimos 7 dias
+            });
+            salvarDados();
+        }
+
+        function salvarDados() {
+            localStorage.setItem('banco_ponto_rafael_v4', JSON.stringify(registros));
+        }
+
+        // Função para registrar o ponto através dos botões automáticos
+        function registrarPonto(tipo) {
+            const agora = new Date();
+            const dataIso = obterDataHojeISO();
+            const horaStr = agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+            registros.push({
+                id: Date.now(),
+                dataIso: dataIso,
+                horaStr: horaStr,
+                tipo: tipo
+            });
+
+            salvarDados();
+            renderizarTabela();
+        }
+
+        // Função para salvar o ponto através do formulário manual
+        function salvarPontoManual() {
+            const data = document.getElementById('manual-data').value;
+            const hora = document.getElementById('manual-hora').value;
+            const tipo = document.getElementById('manual-tipo').value;
+
+            if (!data || !hora) {
+                alert("Por favor, preencha a data e o horário para registrar.");
+                return;
+            }
+
+            registros.push({
+                id: Date.now(),
+                dataIso: data,
+                horaStr: hora,
+                tipo: tipo
+            });
+
+            salvarDados();
+            renderizarTabela();
+            document.getElementById('manual-hora').value = ''; // limpa o campo de hora após salvar
+        }
+
+        // Função para excluir um registro específico
+        function excluirPonto(id) {
+            if(confirm("Tem certeza que deseja excluir este registro?")) {
+                registros = registros.filter(reg => reg.id !== id);
+                salvarDados();
+                renderizarTabela();
+            }
+        }
+
+        // Limpa todo o histórico (com confirmação dupla de segurança)
+        function limparHistorico() {
+            if(confirm("ATENÇÃO! Isso apagará todos os registros dos últimos 7 dias. Deseja continuar?")) {
+                registros = [];
+                salvarDados();
+                renderizarTabela();
+            }
+        }
+
+        // Renderiza os dados na tabela e calcula as horas
+        function renderizarTabela() {
+            limparDadosAntigos(); // Garante que não mostra dados velhos na UI
+            
+            const tbody = document.getElementById('tabela-corpo');
+            const avisoSemDados = document.getElementById('sem-dados');
+            tbody.innerHTML = '';
+
+            // Ordena por data (decrescente) e hora (decrescente)
+            registros.sort((a, b) => {
+                if (a.dataIso === b.dataIso) {
+                    return b.horaStr.localeCompare(a.horaStr);
+                }
+                return b.dataIso.localeCompare(a.dataIso);
+            });
+
+            if (registros.length === 0) {
+                avisoSemDados.classList.remove('hidden');
+            } else {
+                avisoSemDados.classList.add('hidden');
+                
+                registros.forEach(reg => {
+                    const tr = document.createElement('tr');
+                    
+                    // Ajuste de cores para cada tipo de evento para ficar mais visual
+                    let corTipo = "bg-gray-100 text-gray-800";
+                    if(reg.tipo === 'Entrada') corTipo = "bg-emerald-100 text-emerald-800";
+                    if(reg.tipo === 'Almoço Saída') corTipo = "bg-amber-100 text-amber-800";
+                    if(reg.tipo === 'Almoço Retorno') corTipo = "bg-blue-100 text-blue-800";
+                    if(reg.tipo === 'Saída') corTipo = "bg-rose-100 text-rose-800";
+
+                    tr.innerHTML = `
+                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(reg.dataIso)}</td>
+                        <td class="p-4 font-mono">${reg.horaStr}</td>
+                        <td class="p-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${corTipo}">
+                                ${reg.tipo}
+                            </span>
+                        </td>
+                        <td class="p-4 acao-col">
+                            <button onclick="excluirPonto(${reg.id})" class="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer transition">
+                                Excluir
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+            
+            calcularHorasHoje();
+        }
+
+        // Lógica simplificada para cálculo das horas trabalhadas HOJE
+        function calcularHorasHoje() {
+            const dataHoje = obterDataHojeISO();
+            const pontosHoje = registros
+                .filter(r => r.dataIso === dataHoje)
+                .sort((a, b) => a.horaStr.localeCompare(b.horaStr)); // ordem cronológica
+
+            let totalMinutos = 0;
+            let entradaTemp = null;
+
+            pontosHoje.forEach(p => {
+                if (p.tipo === 'Entrada' || p.tipo === 'Almoço Retorno') {
+                    entradaTemp = converterParaMinutos(p.horaStr);
+                } else if ((p.tipo === 'Almoço Saída' || p.tipo === 'Saída') && entradaTemp !== null) {
+                    totalMinutos += converterParaMinutos(p.horaStr) - entradaTemp;
+                    entradaTemp = null;
+                }
+            });
+
+            const horas = Math.floor(totalMinutos / 60);
+            const min = totalMinutos % 60;
+            document.getElementById('horas-hoje').innerText = 
+                `${horas.toString().padStart(2, '0')}h ${min.toString().padStart(2, '0')}m`;
+        }
+
+        // Função para exportar a tabela como PDF
+        function baixarPDF() {
+            const elemento = document.getElementById('area-relatorio');
+            
+            // Exibe o cabeçalho do PDF e esconde a coluna de ações para a impressão
+            document.querySelector('.pdf-header').classList.remove('hidden');
+            document.querySelector('.pdf-header').classList.add('flex');
+            document.getElementById('pdf-data-geracao').innerText = new Date().toLocaleString('pt-BR');
+            
+            const acoesCols = document.querySelectorAll('.acao-col');
+            acoesCols.forEach(el => el.style.display = 'none');
+
+            const opt = {
+                margin:       10,
+                filename:     'ponto_rafael_carvalho.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Gera o PDF e restaura o layout web após a conclusão
+            html2pdf().set(opt).from(elemento).save().then(() => {
+                document.querySelector('.pdf-header').classList.add('hidden');
+                document.querySelector('.pdf-header').classList.remove('flex');
+                acoesCols.forEach(el => el.style.display = '');
+            });
+        }
+
+        // Inicialização da tela ao carregar a página
+        renderizarTabela();
+    </script>
+</body>
+</html>
