@@ -32,7 +32,7 @@
                         📅 Últimos 30 dias: <span id="horas-30-dias" class="font-mono font-bold text-blue-600">00h 00m</span>
                     </div>
                     <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
-                        %📆 Dias registrados: <span id="total-dias" class="font-mono font-bold text-indigo-600">0 dias</span>
+                        📆 Dias registrados: <span id="total-dias" class="font-mono font-bold text-indigo-600">0 dias</span>
                     </div>
                     <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
                         📊 Média diária: <span id="media-horas" class="font-mono font-bold text-purple-600">00h 00m</span>
@@ -116,7 +116,26 @@
     </div>
 
     <script>
-        // TODO: Substitua os valores abaixo com as credenciais do seu projeto Firebase Console
+        // =========================================================================
+        // 1. RELÓGIO E DATA ATUAL (Executa primeiro para garantir funcionamento da UI)
+        // =========================================================================
+        function atualizarRelogio() {
+            try {
+                const agora = new Date();
+                document.getElementById('live-clock').innerText = agora.toLocaleTimeString('pt-BR');
+                
+                const opcoesData = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', opcoesData);
+            } catch (e) {
+                console.error("Erro ao atualizar o relógio visual:", e);
+            }
+        }
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
+
+        // =========================================================================
+        // 2. CONFIGURAÇÕES DO FIREBASE (Insira os dados do seu Firebase Console aqui)
+        // =========================================================================
         const firebaseConfig = {
             apiKey: "SUA_API_KEY_AQUI",
             authDomain: "SEU_PROJECT_ID.firebaseapp.com",
@@ -126,50 +145,141 @@
             appId: "SEU_APP_ID"
         };
 
-        // Inicializa o Firebase e o Firestore
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const colecaoPontos = db.collection("pontos_rafael");
+        // Certifique-se de que este é o nome exato da sua coleção no Cloud Firestore
+        const NOME_COLECAO = "pontos_rafael"; 
 
-        // Relógio e Data em tempo real no cabeçalho
-        function atualizarRelogio() {
-            const agora = new Date();
-            document.getElementById('live-clock').innerText = agora.toLocaleTimeString('pt-BR');
-            
-            const opcoesData = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', opcoesData);
+        let db;
+        let colecaoPontos;
+
+        // Inicialização blindada contra travamento total do script
+        try {
+            if (typeof firebase === 'undefined') {
+                throw new Error("O SDK do Firebase não foi carregado. Verifique a conexão de rede ou as tags script.");
+            }
+
+            if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI" && firebaseConfig.apiKey !== "") {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                colecaoPontos = db.collection(NOME_COLECAO);
+            } else {
+                console.warn("Chaves do Firebase ausentes. Insira suas credenciais em 'firebaseConfig' para carregar o banco.");
+            }
+        } catch (error) {
+            console.error("Erro ao conectar com Firebase:", error.message);
         }
-        setInterval(atualizarRelogio, 1000);
-        atualizarRelogio();
 
-        // Salva pontos batidos nos botões rápidos de um clique
+        // =========================================================================
+        // 3. LÓGICA DO SISTEMA DE PONTO
+        // =========================================================================
         function registrarPonto(tipo) {
+            if (!colecaoPontos) {
+                alert("Erro: O sistema não está conectado ao Firebase. Atualize o 'firebaseConfig' no código.");
+                return;
+            }
             const agora = new Date();
-            const dataStr = agora.toISOString().split('T')[0]; // Formato AAAA-MM-DD (id do doc)
+            const dataStr = agora.toISOString().split('T')[0];
             const horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
             salvarNoFirebase(dataStr, horaStr, tipo);
         }
 
-        // Salva pontos enviados pelo formulário manual
         function registrarPontoManual() {
+            if (!colecaoPontos) {
+                alert("Erro: O sistema não está conectado ao Firebase.");
+                return;
+            }
             const dataInput = document.getElementById('manual-data').value;
             const horaInput = document.getElementById('manual-hora').value;
             const tipoInput = document.getElementById('manual-tipo').value;
 
             if (!dataInput || !horaInput) {
-                alert("Por favor, preencha a data e o horário para o registro manual.");
+                alert("Preencha a data e o horário para o ponto manual.");
                 return;
             }
 
             salvarNoFirebase(dataInput, horaInput, tipoInput);
-            
-            // Reseta campos do formulário
             document.getElementById('manual-data').value = '';
             document.getElementById('manual-hora').value = '';
         }
 
-        // Envia/Mescla as informações no banco agrupando por Data (Evita duplicar dias na tabela)
         function salvarNoFirebase(data, hora, tipo) {
             const docRef = colecaoPontos.doc(data);
-            let dadosPonto = {
+            let dadosPonto = { data: data };
+
+            if (tipo === 'Entrada') dadosPonto.entrada = hora;
+            else if (tipo === 'Almoço Saída') dadosPonto.almocoSaida = hora;
+            else if (tipo === 'Almoço Retorno') dadosPonto.almocoRetorno = hora;
+            else if (tipo === 'Saída') dadosPonto.saida = hora;
+
+            docRef.set(dadosPonto, { merge: true })
+                .then(() => {
+                    alert(`Sucesso! Ponto de ${tipo} registrado às ${hora}.`);
+                    carregarHistorico();
+                })
+                .catch((error) => {
+                    console.error("Erro ao salvar no Firestore:", error);
+                    alert("Falha ao salvar. Verifique se as Regras de Segurança do Firebase expiraram.");
+                });
+        }
+
+        function carregarHistorico() {
+            if (!colecaoPontos) return;
+
+            colecaoPontos.orderBy('data', 'desc').get().then((querySnapshot) => {
+                const tabela = document.getElementById('historico-tabela');
+                tabela.innerHTML = '';
+
+                let minutosHoje = 0;
+                let minutos30Dias = 0;
+                let totalDias = querySnapshot.size;
+                let somaMinutosGeral = 0;
+
+                const hojeStr = new Date().toISOString().split('T')[0];
+                const limite30Dias = new Date();
+                limite30Dias.setDate(limite30Dias.getDate() - 30);
+
+                querySnapshot.forEach((doc) => {
+                    const dia = doc.data();
+                    const dataDocStr = dia.data || doc.id; 
+                    const minutosTrabalhados = calcularHorasDia(dia);
+                    somaMinutosGeral += minutosTrabalhados;
+
+                    const dataDoc = new Date(dataDocStr + 'T00:00:00');
+                    if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
+                    if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-50 transition";
+                    tr.innerHTML = `
+                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(dataDocStr)}</td>
+                        <td class="p-4 text-emerald-700 font-mono font-semibold">${dia.entrada || '-'}</td>
+                        <td class="p-4 text-amber-700 font-mono">${dia.almocoSaida || '-'} ➔ ${dia.almocoRetorno || '-'}</td>
+                        <td class="p-4 text-rose-700 font-mono font-semibold">${dia.saida || '-'}</td>
+                        <td class="p-4 font-bold text-gray-800 font-mono">${formatarMinutos(minutosTrabalhados)}</td>
+                        <td class="p-4 text-center">
+                            <button onclick="deletarRegistroDia('${dataDocStr}')" class="text-rose-500 hover:text-rose-700 font-semibold text-xs bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-md transition">
+                                Remover
+                            </button>
+                        </td>
+                    `;
+                    tabela.appendChild(tr);
+                });
+
+                document.getElementById('horas-hoje').innerText = formatarMinutos(minutosHoje);
+                document.getElementById('horas-30-dias').innerText = formatarMinutos(minutos30Dias);
+                document.getElementById('total-dias').innerText = `${totalDias} dias`;
+                
+                const mediaMinutos = totalDias > 0 ? Math.round(somaMinutosGeral / totalDias) : 0;
+                document.getElementById('media-horas').innerText = formatarMinutos(mediaMinutos);
+            }).catch((err) => {
+                console.error("Erro ao carregar dados (Regras de Segurança ou Chaves incorretas):", err);
+            });
+        }
+
+        function calcularHorasDia(dia) {
+            if (!dia.entrada || !dia.saida) return 0;
+
+            const mEntrada = converterParaMinutos(dia.entrada);
+            const mAlmocoSaida = dia.almocoSaida ? converterParaMinutos(dia.almocoSaida) : 0;
+            const mAlmocoRetorno = dia.almocoRetorno ? converterParaMinutos(dia.almocoRetorno) : 0;
+            const mSaida = converterPara
