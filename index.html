@@ -72,13 +72,21 @@
         </div>
 
         <div class="space-y-4">
-            <div class="flex justify-between items-center">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
-                <div class="flex gap-2">
-                    <button onclick="baixarPDF()" class="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold rounded-lg transition shadow-sm cursor-pointer flex items-center gap-1">
-                        📄 Baixar PDF
+                
+                <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-start sm:justify-end">
+                    <button onclick="exportarBackup()" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition border border-indigo-100 cursor-pointer flex items-center gap-1">
+                        💾 Exportar Backup
                     </button>
-                    <button onclick="limparHistorico()" class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition border border-red-100 cursor-pointer">
+                    <label class="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-semibold rounded-lg transition border border-teal-100 cursor-pointer flex items-center gap-1 mb-0">
+                        📂 Importar Backup
+                        <input type="file" id="input-backup" accept=".json" class="hidden" onchange="importarBackup(event)">
+                    </label>
+                    <button onclick="baixarPDF()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold rounded-lg transition shadow-sm cursor-pointer flex items-center gap-1">
+                        📄 PDF
+                    </button>
+                    <button onclick="limparHistorico()" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition border border-red-100 cursor-pointer">
                         Limpar Tudo
                     </button>
                 </div>
@@ -210,7 +218,55 @@
 
             salvarDados();
             renderizarTabela();
-            document.getElementById('manual-hora').value = ''; // limpa o campo de hora após salvar
+            document.getElementById('manual-hora').value = ''; // limpa o campo
+        }
+
+        // Função para exportar dados (JSON)
+        function exportarBackup() {
+            if (registros.length === 0) {
+                alert("Não há registros guardados para exportar.");
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(registros));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_ponto_rafael_${obterDataHojeISO()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // Função para importar dados (JSON)
+        function importarBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const dadosImportados = JSON.parse(e.target.result);
+                    if (Array.isArray(dadosImportados)) {
+                        if(confirm("Deseja mesclar os registros do arquivo com os atuais? (Clique em Cancelar para substituir tudo)")) {
+                            // Mescla sem duplicar IDs já existentes
+                            const idsExistentes = new Set(registros.map(r => r.id));
+                            dadosImportados.forEach(item => {
+                                if(!idsExistentes.has(item.id)) registros.push(item);
+                            });
+                        } else {
+                            registros = dadosImportados;
+                        }
+                        salvarDados();
+                        renderizarTabela();
+                        alert("Backup processado e atualizado com sucesso!");
+                    } else {
+                        alert("O arquivo selecionado não possui a estrutura correta.");
+                    }
+                } catch (err) {
+                    alert("Erro ao ler o arquivo. Verifique se ele está corrompido.");
+                }
+                event.target.value = ''; // Reseta input
+            };
+            reader.readAsText(file);
         }
 
         // Função para excluir um registro específico
@@ -222,122 +278,4 @@
             }
         }
 
-        // Limpa todo o histórico (com confirmação dupla de segurança)
-        function limparHistorico() {
-            if(confirm("ATENÇÃO! Isso apagará todos os registros dos últimos 7 dias. Deseja continuar?")) {
-                registros = [];
-                salvarDados();
-                renderizarTabela();
-            }
-        }
-
-        // Renderiza os dados na tabela e calcula as horas
-        function renderizarTabela() {
-            limparDadosAntigos(); // Garante que não mostra dados velhos na UI
-            
-            const tbody = document.getElementById('tabela-corpo');
-            const avisoSemDados = document.getElementById('sem-dados');
-            tbody.innerHTML = '';
-
-            // Ordena por data (decrescente) e hora (decrescente)
-            registros.sort((a, b) => {
-                if (a.dataIso === b.dataIso) {
-                    return b.horaStr.localeCompare(a.horaStr);
-                }
-                return b.dataIso.localeCompare(a.dataIso);
-            });
-
-            if (registros.length === 0) {
-                avisoSemDados.classList.remove('hidden');
-            } else {
-                avisoSemDados.classList.add('hidden');
-                
-                registros.forEach(reg => {
-                    const tr = document.createElement('tr');
-                    
-                    // Ajuste de cores para cada tipo de evento para ficar mais visual
-                    let corTipo = "bg-gray-100 text-gray-800";
-                    if(reg.tipo === 'Entrada') corTipo = "bg-emerald-100 text-emerald-800";
-                    if(reg.tipo === 'Almoço Saída') corTipo = "bg-amber-100 text-amber-800";
-                    if(reg.tipo === 'Almoço Retorno') corTipo = "bg-blue-100 text-blue-800";
-                    if(reg.tipo === 'Saída') corTipo = "bg-rose-100 text-rose-800";
-
-                    tr.innerHTML = `
-                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(reg.dataIso)}</td>
-                        <td class="p-4 font-mono">${reg.horaStr}</td>
-                        <td class="p-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${corTipo}">
-                                ${reg.tipo}
-                            </span>
-                        </td>
-                        <td class="p-4 acao-col">
-                            <button onclick="excluirPonto(${reg.id})" class="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer transition">
-                                Excluir
-                            </button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-            
-            calcularHorasHoje();
-        }
-
-        // Lógica simplificada para cálculo das horas trabalhadas HOJE
-        function calcularHorasHoje() {
-            const dataHoje = obterDataHojeISO();
-            const pontosHoje = registros
-                .filter(r => r.dataIso === dataHoje)
-                .sort((a, b) => a.horaStr.localeCompare(b.horaStr)); // ordem cronológica
-
-            let totalMinutos = 0;
-            let entradaTemp = null;
-
-            pontosHoje.forEach(p => {
-                if (p.tipo === 'Entrada' || p.tipo === 'Almoço Retorno') {
-                    entradaTemp = converterParaMinutos(p.horaStr);
-                } else if ((p.tipo === 'Almoço Saída' || p.tipo === 'Saída') && entradaTemp !== null) {
-                    totalMinutos += converterParaMinutos(p.horaStr) - entradaTemp;
-                    entradaTemp = null;
-                }
-            });
-
-            const horas = Math.floor(totalMinutos / 60);
-            const min = totalMinutos % 60;
-            document.getElementById('horas-hoje').innerText = 
-                `${horas.toString().padStart(2, '0')}h ${min.toString().padStart(2, '0')}m`;
-        }
-
-        // Função para exportar a tabela como PDF
-        function baixarPDF() {
-            const elemento = document.getElementById('area-relatorio');
-            
-            // Exibe o cabeçalho do PDF e esconde a coluna de ações para a impressão
-            document.querySelector('.pdf-header').classList.remove('hidden');
-            document.querySelector('.pdf-header').classList.add('flex');
-            document.getElementById('pdf-data-geracao').innerText = new Date().toLocaleString('pt-BR');
-            
-            const acoesCols = document.querySelectorAll('.acao-col');
-            acoesCols.forEach(el => el.style.display = 'none');
-
-            const opt = {
-                margin:       10,
-                filename:     'ponto_rafael_carvalho.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            // Gera o PDF e restaura o layout web após a conclusão
-            html2pdf().set(opt).from(elemento).save().then(() => {
-                document.querySelector('.pdf-header').classList.add('hidden');
-                document.querySelector('.pdf-header').classList.remove('flex');
-                acoesCols.forEach(el => el.style.display = '');
-            });
-        }
-
-        // Inicialização da tela ao carregar a página
-        renderizarTabela();
-    </script>
-</body>
-</html>
+        // Limpa todo o histórico
