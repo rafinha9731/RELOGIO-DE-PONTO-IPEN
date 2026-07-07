@@ -108,7 +108,10 @@
                         </tr>
                     </thead>
                     <tbody id="historico-tabela" class="divide-y divide-gray-100 text-gray-700">
-                        </tbody>
+                        <tr>
+                            <td colspan="6" class="p-4 text-center text-gray-400 animate-pulse">Conectando ao banco de dados e buscando histórico...</td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -142,7 +145,7 @@
         }
 
         // =========================================================================
-        // 2. CONFIGURAÇÕES DO FIREBASE (Validadas)
+        // 2. CONFIGURAÇÕES DO FIREBASE (Atualizadas com os seus dados reais)
         // =========================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
@@ -154,7 +157,7 @@
             measurementId: "G-6ZXKLCBQ00"
         };
 
-        // ATENÇÃO: Certifique-se de que no seu Firebase Console a coleção está escrita exatamente assim (maiúsculas/minúsculas)
+        // NOTA IMPORTANTE: Verifique no painel do Cloud Firestore se o nome está idêntico.
         const NOME_COLECAO = "PontoEletronicoRafael"; 
 
         let db;
@@ -164,14 +167,9 @@
             if (typeof firebase === 'undefined') {
                 throw new Error("O SDK do Firebase não foi carregado corretamente.");
             }
-
-            if (firebaseConfig.apiKey !== "SUA_API_KEY_AQUI" && firebaseConfig.apiKey !== "") {
-                firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                colecaoPontos = db.collection(NOME_COLECAO);
-            } else {
-                console.warn("Chaves do Firebase ausentes. Preencha o objeto firebaseConfig.");
-            }
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            colecaoPontos = db.collection(NOME_COLECAO);
         } catch (error) {
             console.error("Erro ao conectar com Firebase:", error.message);
         }
@@ -181,7 +179,7 @@
         // =========================================================================
         function registrarPonto(tipo) {
             if (!colecaoPontos) {
-                alert("Erro: O sistema não está conectado ao Firebase.");
+                alert("Erro: O sistema não conseguiu inicializar o Firebase.");
                 return;
             }
             const agora = new Date();
@@ -226,17 +224,23 @@
                 })
                 .catch((error) => {
                     console.error("Erro ao salvar no Firestore:", error);
-                    alert("Falha ao salvar. Verifique as Regras de Segurança do seu Firebase.");
+                    alert(`Falha ao salvar: ${error.message}`);
                 });
         }
 
         function carregarHistorico() {
             if (!colecaoPontos) return;
 
-            // CORREÇÃO CRÍTICA: Ordenando pelo ID do documento (Data) para garantir a leitura de dados antigos sem o campo 'data' interno
-            colecaoPontos.orderBy(firebase.firestore.FieldPath.documentId(), 'desc').get().then((querySnapshot) => {
+            // Buscando os dados puros para evitar erros de indexação
+            colecaoPontos.get().then((querySnapshot) => {
                 const tabela = document.getElementById('historico-tabela');
                 tabela.innerHTML = '';
+
+                if (querySnapshot.empty) {
+                    tabela.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">Nenhum registro encontrado na coleção "${NOME_COLECAO}".</td></tr>`;
+                    atualizarMetricasVazias();
+                    return;
+                }
 
                 let minutosHoje = 0;
                 let minutos30Dias = 0;
@@ -247,9 +251,13 @@
                 const limite30Dias = new Date();
                 limite30Dias.setDate(limite30Dias.getDate() - 30);
 
-                querySnapshot.forEach((doc) => {
-                    const dia = doc.data();
-                    const dataDocStr = dia.data || doc.id; 
+                // Convertendo para array para ordenar localmente de forma segura (Decrescente por Data)
+                const documentos = [];
+                querySnapshot.forEach(doc => documentos.push({ id: doc.id, ...doc.data() }));
+                documentos.sort((a, b) => b.id.localeCompare(a.id));
+
+                documentos.forEach((dia) => {
+                    const dataDocStr = dia.data || dia.id; 
                     const minutosTrabalhados = calcularHorasDia(dia);
                     somaMinutosGeral += minutosTrabalhados;
 
@@ -281,9 +289,25 @@
                 const mediaMinutos = totalDias > 0 ? Math.round(somaMinutosGeral / totalDias) : 0;
                 document.getElementById('media-horas').innerText = formatarMinutos(mediaMinutos);
             }).catch((err) => {
-                console.error("Erro ao carregar dados do Firestore:", err);
-                alert("Erro ao acessar o banco. Verifique se o nome da coleção está correto ou se as Regras de Segurança do Firebase expiraram.");
+                console.error("Erro Crítico no Firestore:", err);
+                const tabela = document.getElementById('historico-tabela');
+                tabela.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-6 text-center text-rose-600 bg-rose-50 font-medium rounded-xl">
+                            ⚠️ Erro de Acesso ao Firebase!<br>
+                            <span class="text-xs font-mono block mt-2 text-gray-600 bg-white p-3 border border-gray-200 rounded max-w-xl mx-auto text-left whitespace-pre-wrap font-normal">${err.message}</span>
+                        </td>
+                    </tr>
+                `;
+                atualizarMetricasVazias();
             });
+        }
+
+        function atualizarMetricasVazias() {
+            document.getElementById('horas-hoje').innerText = "00h 00m";
+            document.getElementById('horas-30-dias').innerText = "00h 00m";
+            document.getElementById('total-dias').innerText = "0 dias";
+            document.getElementById('media-horas').innerText = "00h 00m";
         }
 
         function calcularHorasDia(dia) {
