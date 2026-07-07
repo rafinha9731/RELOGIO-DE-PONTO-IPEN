@@ -6,6 +6,9 @@
     <title>Ponto Eletrônico - Rafael Carvalho</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen flex flex-col items-center p-4 sm:p-8">
 
@@ -124,158 +127,11 @@
     </div>
 
     <script>
-        // Relógio em tempo real
-        function atualizarRelogio() {
-            const agora = new Date();
-            document.getElementById('live-clock').innerText = agora.toLocaleTimeString('pt-BR');
-            document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-            });
-        }
-        setInterval(atualizarRelogio, 1000);
-        atualizarRelogio();
-
-        // Inicializa o banco de dados interno
-        let registros = JSON.parse(localStorage.getItem('banco_ponto_rafael_v4')) || [];
-
-        // Define a data de hoje no input manual
-        function obterDataHojeISO() {
-            const hoje = new Date();
-            const tzOffset = hoje.getTimezoneOffset() * 60000;
-            return (new Date(hoje.getTime() - tzOffset)).toISOString().slice(0, 10);
-        }
-        document.getElementById('manual-data').value = obterDataHojeISO();
-
-        // Converte "HH:MM" para minutos totais do dia para cálculos
-        function converterParaMinutos(horaStr) {
-            if (!horaStr) return 0;
-            const [horas, minutos] = horaStr.split(':').map(Number);
-            return (horas * 60) + minutos;
-        }
-
-        // Formata data ISO (AAAA-MM-DD) para exibição brasileira (DD/MM/AAAA)
-        function formatarDataBR(dataISO) {
-            const [ano, mes, dia] = dataISO.split('-');
-            return `${dia}/${mes}/${ano}`;
-        }
-
-        // Executa a limpeza automática dos dados maiores que 7 dias
-        function limparDadosAntigos() {
-            const hoje = new Date();
-            hoje.setHours(0,0,0,0);
-
-            registros = registros.filter(reg => {
-                const [ano, mes, dia] = reg.dataIso.split('-').map(Number);
-                const dataPonto = new Date(ano, mes - 1, dia);
-                dataPonto.setHours(0,0,0,0);
-
-                const difTempo = hoje.getTime() - dataPonto.getTime();
-                const difDias = difTempo / (1000 * 3600 * 24);
-                
-                return difDias <= 7; // Mantém apenas os últimos 7 dias
-            });
-            salvarDados();
-        }
-
-        function salvarDados() {
-            localStorage.setItem('banco_ponto_rafael_v4', JSON.stringify(registros));
-        }
-
-        // Função para registrar o ponto através dos botões automáticos
-        function registrarPonto(tipo) {
-            const agora = new Date();
-            const dataIso = obterDataHojeISO();
-            const horaStr = agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-
-            registros.push({
-                id: Date.now(),
-                dataIso: dataIso,
-                horaStr: horaStr,
-                tipo: tipo
-            });
-
-            salvarDados();
-            renderizarTabela();
-        }
-
-        // Função para salvar o ponto através do formulário manual
-        function salvarPontoManual() {
-            const data = document.getElementById('manual-data').value;
-            const hora = document.getElementById('manual-hora').value;
-            const tipo = document.getElementById('manual-tipo').value;
-
-            if (!data || !hora) {
-                alert("Por favor, preencha a data e o horário para registrar.");
-                return;
-            }
-
-            registros.push({
-                id: Date.now(),
-                dataIso: data,
-                horaStr: hora,
-                tipo: tipo
-            });
-
-            salvarDados();
-            renderizarTabela();
-            document.getElementById('manual-hora').value = ''; // limpa o campo
-        }
-
-        // Função para exportar dados (JSON)
-        function exportarBackup() {
-            if (registros.length === 0) {
-                alert("Não há registros guardados para exportar.");
-                return;
-            }
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(registros));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `backup_ponto_rafael_${obterDataHojeISO()}.json`);
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
-        }
-
-        // Função para importar dados (JSON)
-        function importarBackup(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const dadosImportados = JSON.parse(e.target.result);
-                    if (Array.isArray(dadosImportados)) {
-                        if(confirm("Deseja mesclar os registros do arquivo com os atuais? (Clique em Cancelar para substituir tudo)")) {
-                            // Mescla sem duplicar IDs já existentes
-                            const idsExistentes = new Set(registros.map(r => r.id));
-                            dadosImportados.forEach(item => {
-                                if(!idsExistentes.has(item.id)) registros.push(item);
-                            });
-                        } else {
-                            registros = dadosImportados;
-                        }
-                        salvarDados();
-                        renderizarTabela();
-                        alert("Backup processado e atualizado com sucesso!");
-                    } else {
-                        alert("O arquivo selecionado não possui a estrutura correta.");
-                    }
-                } catch (err) {
-                    alert("Erro ao ler o arquivo. Verifique se ele está corrompido.");
-                }
-                event.target.value = ''; // Reseta input
-            };
-            reader.readAsText(file);
-        }
-
-        // Função para excluir um registro específico
-        function excluirPonto(id) {
-            if(confirm("Tem certeza que deseja excluir este registro?")) {
-                registros = registros.filter(reg => reg.id !== id);
-                salvarDados();
-                renderizarTabela();
-            }
-        }
-
-        // Limpa todo o histórico
+        // Configuração oficial fornecida do seu Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
+            authDomain: "pontoeletronicorafael.firebaseapp.com",
+            projectId: "pontoeletronicorafael",
+            storageBucket: "pontoeletronicorafael.firebasestorage.app",
+            messagingSenderId: "737764359469",
+            appId: "1:7377643594
