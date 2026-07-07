@@ -127,11 +127,341 @@
     </div>
 
     <script>
-        // Configuração oficial fornecida do seu Firebase
+        // =========================================================
+        // 1. INICIALIZAÇÃO IMEDIATA DA INTERFACE (RESOLVE O TRAVAMENTO)
+        // =========================================================
+        
+        // Relógio em tempo real integrado imediatamente
+        function atualizarRelogio() {
+            const agora = new Date();
+            const relogioEl = document.getElementById('live-clock');
+            const dataEl = document.getElementById('live-date');
+            
+            if(relogioEl) relogioEl.innerText = agora.toLocaleTimeString('pt-BR');
+            if(dataEl) dataEl.innerText = agora.toLocaleDateString('pt-BR', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
+
+        // Captura e define a data de hoje no padrão ISO para os calendários
+        function obterDataHojeISO() {
+            const hoje = new Date();
+            const tzOffset = hoje.getTimezoneOffset() * 60000;
+            return (new Date(hoje.getTime() - tzOffset)).toISOString().slice(0, 10);
+        }
+        document.getElementById('manual-data').value = obterDataHojeISO();
+
+        // =========================================================
+        // 2. CONFIGURAÇÃO DE SEGURANÇA E CONEXÃO COM O FIREBASE
+        // =========================================================
+        
         const firebaseConfig = {
             apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
             authDomain: "pontoeletronicorafael.firebaseapp.com",
             projectId: "pontoeletronicorafael",
             storageBucket: "pontoeletronicorafael.firebasestorage.app",
             messagingSenderId: "737764359469",
-            appId: "1:7377643594
+            appId: "1:737764359469:web:8b2e6c352c948f7f25a7a4",
+            measurementId: "G-6ZXKLCBQ00"
+        };
+
+        let db = null;
+        let registros = [];
+
+        // Conecta ao Firebase tratando possíveis falhas de rede de forma isolada
+        if (typeof firebase !== 'undefined') {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+            } catch (e) {
+                console.error("Erro estrutural ao inicializar o Firebase: ", e);
+            }
+        } else {
+            console.error("Atenção: Os scripts CDN do Firebase não foram carregados corretamente.");
+        }
+
+        // =========================================================
+        // 3. FUNÇÕES OPERACIONAIS DO SISTEMA
+        // =========================================================
+
+        // Converte "HH:MM" para minutos totais do dia para cálculos
+        function converterParaMinutos(horaStr) {
+            if (!horaStr) return 0;
+            const [horas, minutos] = horaStr.split(':').map(Number);
+            return (horas * 60) + minutos;
+        }
+
+        // Formata data ISO (AAAA-MM-DD) para exibição brasileira (DD/MM/AAAA)
+        function formatarDataBR(dataISO) {
+            if(!dataISO || !dataISO.includes('-')) return dataISO;
+            const [ano, mes, dia] = dataISO.split('-');
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        // Conexão e sincronização em tempo real com a nuvem Firestore
+        function escutarPontosCloud() {
+            if (!db) {
+                renderizarTabela();
+                return;
+            }
+
+            db.collection("pontos")
+              .onSnapshot((snapshot) => {
+                  let registrosCarregados = [];
+                  const hoje = new Date();
+                  hoje.setHours(0,0,0,0);
+
+                  snapshot.forEach((doc) => {
+                      let dados = doc.data();
+                      dados.id = doc.id; 
+                      
+                      // Filtro de segurança: exibe apenas os pontos dos últimos 7 dias
+                      if(dados.dataIso) {
+                          const [ano, mes, dia] = dados.dataIso.split('-').map(Number);
+                          const dataPonto = new Date(ano, mes - 1, dia);
+                          dataPonto.setHours(0,0,0,0);
+                          
+                          const difTempo = hoje.getTime() - dataPonto.getTime();
+                          const difDias = difTempo / (1000 * 3600 * 24);
+                          
+                          if (difDias <= 7) {
+                              registrosCarregados.push(dados);
+                          }
+                      }
+                  });
+                  
+                  registros = registrosCarregados;
+                  renderizarTabela();
+              }, (error) => {
+                  console.error("Erro ao sincronizar dados da nuvem: ", error);
+              });
+        }
+
+        // Registra ponto automático na Nuvem
+        function registrarPonto(tipo) {
+            const agora = new Date();
+            const dataIso = obterDataHojeISO();
+            const horaStr = agora.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+            if (!db) {
+                alert("O banco de dados em nuvem está desconectado.");
+                return;
+            }
+
+            db.collection("pontos").add({
+                dataIso: dataIso,
+                horaStr: horaStr,
+                tipo: tipo,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(err => alert("Erro ao salvar na nuvem: " + err));
+        }
+
+        // Salva ponto inserido manualmente na Nuvem
+        function salvarPontoManual() {
+            const data = document.getElementById('manual-data').value;
+            const hora = document.getElementById('manual-hora').value;
+            const tipo = document.getElementById('manual-tipo').value;
+
+            if (!data || !hora) {
+                alert("Por favor, preencha a data e o horário para registrar.");
+                return;
+            }
+
+            if (!db) {
+                alert("O banco de dados em nuvem está desconectado.");
+                return;
+            }
+
+            db.collection("pontos").add({
+                dataIso: data,
+                horaStr: hora,
+                tipo: tipo,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                document.getElementById('manual-hora').value = '';
+            }).catch(err => alert("Erro ao salvar ponto manual: " + err));
+        }
+
+        // Exclui ponto permanentemente da Nuvem
+        function excluirPonto(idDoc) {
+            if (!db) {
+                alert("Banco de dados indisponível para exclusão.");
+                return;
+            }
+
+            if(confirm("Tem certeza que deseja excluir este registro na nuvem de forma permanente?")) {
+                db.collection("pontos").doc(idDoc).delete()
+                  .catch(err => alert("Erro ao deletar arquivo: " + err));
+            }
+        }
+
+        // Limpa os registros apresentados atualmente
+        function limparHistorico() {
+            if (!db) {
+                alert("Função indisponível sem conexão com a nuvem.");
+                return;
+            }
+
+            if(confirm("ATENÇÃO! Isso apagará todos os registros em nuvem dos últimos 7 dias. Deseja continuar?")) {
+                registros.forEach(reg => {
+                    db.collection("pontos").doc(reg.id).delete();
+                });
+            }
+        }
+
+        // Exporta dados atuais para um arquivo físico JSON (Backup de Segurança)
+        function exportarBackup() {
+            if (registros.length === 0) {
+                alert("Não há dados carregados para exportar.");
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(registros));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_ponto_cloud_${obterDataHojeISO()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // Importa dados de um arquivo JSON convertendo-os em documentos na nuvem
+        function importarBackup(event) {
+            if (!db) {
+                alert("Conecte-se à internet e ao Firebase antes de realizar a importação.");
+                return;
+            }
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const dadosImportados = JSON.parse(e.target.result);
+                    if (Array.isArray(dadosImportados)) {
+                        if(confirm(`Deseja enviar estes ${dadosImportados.length} registros para o seu Firebase?`)) {
+                            dadosImportados.forEach(item => {
+                                db.collection("pontos").add({
+                                    dataIso: item.dataIso,
+                                    horaStr: item.horaStr,
+                                    tipo: item.tipo,
+                                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            });
+                            alert("Sincronização de backup concluída com sucesso!");
+                        }
+                    } else {
+                        alert("Formato de arquivo inválido.");
+                    }
+                } catch (err) {
+                    alert("Erro de leitura. Certifique-se de carregar um arquivo válido.");
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // Renderiza a interface da tabela de históricos
+        function renderizarTabela() {
+            const tbody = document.getElementById('tabela-corpo');
+            const avisoSemDados = document.getElementById('sem-dados');
+            tbody.innerHTML = '';
+
+            // Ordenação cronológica decrescente rigorosa
+            registros.sort((a, b) => {
+                if (a.dataIso === b.dataIso) {
+                    return b.horaStr.localeCompare(a.horaStr);
+                }
+                return b.dataIso.localeCompare(a.dataIso);
+            });
+
+            if (registros.length === 0) {
+                avisoSemDados.classList.remove('hidden');
+            } else {
+                avisoSemDados.classList.add('hidden');
+                
+                registros.forEach(reg => {
+                    const tr = document.createElement('tr');
+                    let corTipo = "bg-gray-100 text-gray-800";
+                    if(reg.tipo === 'Entrada') corTipo = "bg-emerald-100 text-emerald-800";
+                    if(reg.tipo === 'Almoço Saída') corTipo = "bg-amber-100 text-amber-800";
+                    if(reg.tipo === 'Almoço Retorno') corTipo = "bg-blue-100 text-blue-800";
+                    if(reg.tipo === 'Saída') corTipo = "bg-rose-100 text-rose-800";
+
+                    tr.innerHTML = `
+                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(reg.dataIso)}</td>
+                        <td class="p-4 font-mono">${reg.horaStr}</td>
+                        <td class="p-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${corTipo}">
+                                ${reg.tipo}
+                            </span>
+                        </td>
+                        <td class="p-4 acao-col">
+                            <button onclick="excluirPonto('${reg.id}')" class="text-red-500 hover:text-red-700 text-xs font-bold cursor-pointer transition">
+                                Excluir
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+            calcularHorasHoje();
+        }
+
+        // Lógica de cálculo automatizado de horas cumpridas HOJE
+        function calcularHorasHoje() {
+            const dataHoje = obterDataHojeISO();
+            const pointsHoje = registros
+                .filter(r => r.dataIso === dataHoje)
+                .sort((a, b) => a.horaStr.localeCompare(b.horaStr));
+
+            let totalMinutos = 0;
+            let entradaTemp = null;
+
+            pointsHoje.forEach(p => {
+                if (p.tipo === 'Entrada' || p.tipo === 'Almoço Retorno') {
+                    entradaTemp = converterParaMinutos(p.horaStr);
+                } else if ((p.tipo === 'Almoço Saída' || p.tipo === 'Saída') && entradaTemp !== null) {
+                    totalMinutos += converterParaMinutos(p.horaStr) - entradaTemp;
+                    entradaTemp = null;
+                }
+            });
+
+            const horas = Math.floor(totalMinutos / 60);
+            const min = totalMinutos % 60;
+            document.getElementById('horas-hoje').innerText = 
+                `${horas.toString().padStart(2, '0')}h ${min.toString().padStart(2, '0')}m`;
+        }
+
+        // Geração estruturada do arquivo PDF
+        function baixarPDF() {
+            const elemento = document.getElementById('area-relatorio');
+            document.querySelector('.pdf-header').classList.remove('hidden');
+            document.querySelector('.pdf-header').classList.add('flex');
+            document.getElementById('pdf-data-geracao').innerText = new Date().toLocaleString('pt-BR');
+            
+            const acoesCols = document.querySelectorAll('.acao-col');
+            acoesCols.forEach(el => el.style.display = 'none');
+
+            const opt = {
+                margin:       10,
+                filename:     'ponto_rafael_carvalho.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(elemento).save().then(() => {
+                document.querySelector('.pdf-header').classList.add('hidden');
+                document.querySelector('.pdf-header').classList.remove('flex');
+                acoesCols.forEach(el => el.style.display = '');
+            });
+        }
+
+        // Dispara a escuta em tempo real dos registros no Firebase
+        escutarPontosCloud();
+    </script>
+</body>
+</html>
