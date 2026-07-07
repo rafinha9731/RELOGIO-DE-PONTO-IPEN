@@ -282,4 +282,61 @@
             const mEntrada = converterParaMinutos(dia.entrada);
             const mAlmocoSaida = dia.almocoSaida ? converterParaMinutos(dia.almocoSaida) : 0;
             const mAlmocoRetorno = dia.almocoRetorno ? converterParaMinutos(dia.almocoRetorno) : 0;
-            const mSaida = converterPara
+            const mSaida = converterParaMinutos(dia.saida);
+
+            let tempoBruto = mSaida - mEntrada;
+
+            if (mAlmocoSaida && mAlmocoRetorno && mAlmocoRetorno > mAlmocoSaida) {
+                const tempoIntervalo = mAlmocoRetorno - mAlmocoSaida;
+                tempoBruto -= tempoIntervalo;
+            }
+
+            return tempoBruto > 0 ? tempoBruto : 0;
+        }
+
+        function converterParaMinutos(horaStr) {
+            if (!horaStr || !horaStr.includes(':')) return 0;
+            const [h, m] = horaStr.split(':').map(Number);
+            return (h * 60) + m;
+        }
+
+        function formatarMinutos(totalMinutos) {
+            const h = Math.floor(totalMinutos / 60);
+            const m = totalMinutos % 60;
+            return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+        }
+
+        function formatarDataBR(dataStr) {
+            if (!dataStr || !dataStr.includes('-')) return dataStr;
+            const [ano, mes, dia] = dataStr.split('-');
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        function deletarRegistroDia(idData) {
+            if (confirm(`Excluir permanentemente o dia ${formatarDataBR(idData)}?`)) {
+                colecaoPontos.doc(idData).delete().then(() => {
+                    carregarHistorico();
+                });
+            }
+        }
+
+        function exportarPDF() {
+            const folha = document.querySelector('.max-w-4xl');
+            const configuracoes = {
+                margin:       10,
+                filename:     `folha_ponto_rafael_${new Date().getMonth()+1}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(configuracoes).from(folha).save();
+        }
+
+        window.onload = function() {
+            if (colecaoPontos) {
+                carregarHistorico();
+            }
+        };
+    </script>
+</body>
+</html>
