@@ -1,3 +1,6 @@
+Aqui está o código completo do seu arquivo `index.html`. Já apliquei a correção na linha onde o `minutesTrabalhados` quebrava o script, assim você pode apenas copiar tudo e substituir o conteúdo do seu arquivo atual com segurança.
+
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -7,7 +10,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <!-- Firebase SDK v8 -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
@@ -15,7 +17,6 @@
 
     <div class="max-w-4xl w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-8">
         
-        <!-- Cabeçalho e Métricas -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-6 gap-4">
             <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
@@ -43,7 +44,6 @@
             </div>
         </div>
 
-        <!-- Botões de Registro Rápido -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center h-40 p-6 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl transition cursor-pointer group shadow-sm">
                 <span class="text-4xl mb-2 group-hover:scale-110 transition">📥</span>
@@ -63,7 +63,6 @@
             </button>
         </div>
 
-        <!-- Seção de Ponto Manual -->
         <div class="bg-gray-50 border border-gray-150 rounded-xl p-4 space-y-3">
             <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">🛠️ Inserir Ponto Esquecido / Manual</h3>
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
@@ -92,7 +91,6 @@
             </div>
         </div>
 
-        <!-- Histórico de Registros -->
         <div class="space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
@@ -266,7 +264,7 @@
 
                     const dataDoc = new Date(dataDocStr + 'T00:00:00');
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
-                    if (dataDoc >= limite30Dias) minutos30Dias += minutesTrabalhados;
+                    if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
 
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-gray-50 transition";
@@ -418,7 +416,6 @@
                     </tbody>
                 </table>
 
-                <!-- Linha de validação discreta no rodapé -->
                 <div style="margin-top: 60px; width: 240px; text-align: center; border-top: 1px solid #111; padding-top: 6px; font-size: 11px; color: #222;">
                     <strong>Rafael Carvalho</strong><br><span style="color: #666; font-size: 10px;">Assinatura do Funcionário</span>
                 </div>
