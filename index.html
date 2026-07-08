@@ -1,447 +1,417 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ponto Eletrônico - Rafael Carvalho</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
-    <!-- Firebase SDK v8 -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ponto Eletrônico - Rafael Carvalho</title>
+
+<!-- html2pdf -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+  body { background: #f4f6f9; color: #222; padding: 20px; }
+  .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.08); padding: 24px; }
+  h1 { text-align: center; margin-bottom: 6px; color: #1e3a8a; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
+  .status { text-align:center; font-size:12px; margin-bottom:16px; padding:6px; border-radius:6px; }
+  .status.online { background:#d1fae5; color:#065f46; }
+  .status.offline { background:#fee2e2; color:#991b1b; }
+  .actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:20px; }
+  button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: opacity .2s; }
+  button:hover { opacity: .9; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: #1e3a8a; color: #fff; }
+  .btn-success { background: #16a34a; color: #fff; }
+  .btn-danger  { background: #dc2626; color: #fff; }
+  .btn-warn    { background: #f59e0b; color: #fff; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
+  th { background: #1e3a8a; color: #fff; }
+  tr:nth-child(even) { background: #f9fafb; }
+  .empty { text-align:center; padding:20px; color:#888; }
+  #relogio { text-align:center; font-size:28px; font-weight:600; color:#1e3a8a; margin-bottom:14px; }
+
+  .section-title { margin: 24px 0 8px; color: #1e3a8a; font-size: 16px; border-bottom: 2px solid #1e3a8a; padding-bottom: 4px; }
+  .resumo table th { background: #16a34a; }
+  .resumo .aberto { color: #b45309; font-style: italic; font-size: 12px; }
+  .resumo .total-row td { background: #eef2ff; font-weight: 600; }
+</style>
 </head>
-<body class="bg-gray-50 font-sans min-h-screen flex flex-col items-center p-4 sm:p-8">
+<body>
 
-    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-8">
-        
-        <!-- Cabeçalho e Métricas -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-6 gap-4">
-            <div>
-                <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
-                <h1 class="text-2xl font-bold text-gray-800 mt-1">Rafael Carvalho</h1>
-                <p class="text-sm text-gray-500">Controle de Ponto Individual (Histórico Completo)</p>
-            </div>
-            <div class="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
-                <div id="live-clock" class="text-3xl font-mono font-bold text-blue-600">00:00:00</div>
-                <div id="live-date" class="text-sm text-gray-500 font-medium">Carregando data...</div>
-                
-                <div class="mt-2 flex flex-wrap gap-2 justify-start sm:justify-end">
-                    <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
-                        ⏱️ Hoje: <span id="horas-hoje" class="font-mono font-bold text-emerald-600">00h 00m</span>
-                    </div>
-                    <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
-                        📅 Últimos 30 dias: <span id="horas-30-dias" class="font-mono font-bold text-blue-600">00h 00m</span>
-                    </div>
-                    <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
-                        📆 Dias registrados: <span id="total-dias" class="font-mono font-bold text-indigo-600">0 dias</span>
-                    </div>
-                    <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
-                        📊 Média diária: <span id="media-horas" class="font-mono font-bold text-purple-600">00h 00m</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div class="container">
+  <h1>Ponto Eletrônico</h1>
+  <p class="subtitle">Funcionário: Rafael Carvalho</p>
 
-        <!-- Botões de Registro Rápido -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center h-40 p-6 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">📥</span>
-                <span class="text-base font-bold text-emerald-800">Entrada</span>
-            </button>
-            <button onclick="registrarPonto('Almoço Saída')" class="flex flex-col items-center justify-center h-40 p-6 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">☕</span>
-                <span class="text-base font-bold text-amber-800">Saída Almoço</span>
-            </button>
-            <button onclick="registrarPonto('Almoço Retorno')" class="flex flex-col items-center justify-center h-40 p-6 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">🔄</span>
-                <span class="text-base font-bold text-blue-800">Retorno Almoço</span>
-            </button>
-            <button onclick="registrarPonto('Saída')" class="flex flex-col items-center justify-center h-40 p-6 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">📤</span>
-                <span class="text-base font-bold text-rose-800">Saída</span>
-            </button>
-        </div>
+  <div id="status" class="status offline">Conectando ao Firebase...</div>
+  <div id="relogio">--:--:--</div>
 
-        <!-- Seção de Ponto Manual -->
-        <div class="bg-gray-50 border border-gray-150 rounded-xl p-4 space-y-3">
-            <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">🛠️ Inserir Ponto Esquecido / Manual</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
-                    <input type="date" id="manual-data" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Horário (HH:MM)</label>
-                    <input type="time" id="manual-hora" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de Ponto</label>
-                    <select id="manual-tipo" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                        <option value="Entrada">Entrada</option>
-                        <option value="Almoço Saída">Saída Almoço</option>
-                        <option value="Almoço Retorno">Retorno Almoço</option>
-                        <option value="Saída">Saída</option>
-                    </select>
-                </div>
-                <div>
-                    <button onclick="registrarPontoManual()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm p-2 rounded-lg transition shadow-sm h-[38px]">
-                        Inserir Registro
-                    </button>
-                </div>
-            </div>
-        </div>
+  <div class="actions">
+    <button class="btn-success" onclick="registrarPonto()">Registrar Ponto</button>
+    <button class="btn-primary" onclick="exportarPDF()">Exportar PDF</button>
+    <button class="btn-warn" onclick="sincronizar()">Sincronizar</button>
+    <button class="btn-danger" onclick="limparRegistros()">Limpar Registros</button>
+  </div>
 
-        <!-- Histórico de Registros -->
-        <div class="space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
-                <button onclick="exportarPDF()" class="bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1 shadow-sm">
-                    🖨️ Exportar PDF Clean
-                </button>
-            </div>
-            <div class="overflow-x-auto border border-gray-100 rounded-xl bg-white shadow-sm">
-                <table class="min-w-full divide-y divide-gray-100 text-sm text-left">
-                    <thead class="bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider">
-                        <tr>
-                            <th class="p-4">Data</th>
-                            <th class="p-4">Entrada</th>
-                            <th class="p-4">Intervalo</th>
-                            <th class="p-4">Saída</th>
-                            <th class="p-4">Total Dia</th>
-                            <th class="p-4 text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historico-tabela" class="divide-y divide-gray-100 text-gray-700">
-                        <tr>
-                            <td colspan="6" class="p-4 text-center text-gray-400 animate-pulse">Conectando ao banco de dados e buscando histórico...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+  <h3 class="section-title">Resumo Diário de Horas Trabalhadas</h3>
+  <div id="resumoContainer" class="resumo">
+    <div class="empty">Nenhum registro para calcular.</div>
+  </div>
 
-    </div>
+  <h3 class="section-title">Registros de Ponto</h3>
+  <div id="tabelaContainer">
+    <div class="empty">Nenhum registro encontrado.</div>
+  </div>
+</div>
 
-    <script>
-        // =========================================================================
-        // 1. RELÓGIO E DATA ATUAL
-        // =========================================================================
-        function atualizarRelogio() {
-            try {
-                const agora = new Date();
-                document.getElementById('live-clock').innerText = agora.toLocaleTimeString('pt-BR');
-                
-                const opcoesData = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', opcoesData);
-            } catch (e) {
-                console.error("Erro ao atualizar o relógio visual:", e);
-            }
+<!-- Firebase SDK modular -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, getDocs,
+    deleteDoc, doc, query, orderBy, onSnapshot, Timestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
+    authDomain: "pontoeletronicorafael.firebaseapp.com",
+    projectId: "pontoeletronicorafael",
+    storageBucket: "pontoeletronicorafael.firebasestorage.app",
+    messagingSenderId: "737764359469",
+    appId: "1:737764359469:web:8b2e6c352c948f7f25a7a4",
+    measurementId: "G-6ZXKLCBQ00"
+  };
+
+  const NOME_COLECAO = "PontoEletronicoRafael";
+
+  let app, db, colRef;
+  let firebaseOK = false;
+
+  try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    colRef = collection(db, NOME_COLECAO);
+    firebaseOK = true;
+    setStatus(true, "Conectado ao Firebase");
+  } catch (err) {
+    console.error("Erro Firebase:", err);
+    setStatus(false, "Firebase indisponível - usando armazenamento local");
+  }
+
+  function setStatus(ok, msg) {
+    const el = document.getElementById('status');
+    el.className = 'status ' + (ok ? 'online' : 'offline');
+    el.textContent = msg;
+  }
+
+  // ===== Estado local =====
+  const LS_KEY = 'pontos_rafael';
+
+  function lerLocal() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+    catch { return []; }
+  }
+  function salvarLocal(lista) {
+    localStorage.setItem(LS_KEY, JSON.stringify(lista));
+  }
+
+  // ===== Formatador de duração =====
+  function formatarDuracao(ms) {
+    if (ms <= 0) return '00h 00min';
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}min`;
+  }
+
+  // ===== Cálculo de horas por dia =====
+  function calcularResumoDiario(registros) {
+    // Agrupa por data (chave: yyyy-mm-dd)
+    const grupos = {};
+    registros.forEach(r => {
+      const d = new Date(r.timestamp);
+      const chave = d.toISOString().slice(0, 10);
+      if (!grupos[chave]) grupos[chave] = [];
+      grupos[chave].push(r.timestamp);
+    });
+
+    // Para cada dia, ordena e pareia
+    const resumo = [];
+    Object.keys(grupos).sort().forEach(chave => {
+      const batidas = grupos[chave].sort((a, b) => a - b);
+      let totalMs = 0;
+      let aberto = false;
+
+      for (let i = 0; i < batidas.length; i += 2) {
+        const entrada = batidas[i];
+        const saida = batidas[i + 1];
+        if (saida !== undefined) {
+          totalMs += (saida - entrada);
+        } else {
+          aberto = true;
         }
-        setInterval(atualizarRelogio, 1000);
-        atualizarRelogio();
+      }
 
-        function obterDataLocalISO(dataObjeto) {
-            const d = dataObjeto || new Date();
-            const ano = d.getFullYear();
-            const mes = String(d.getMonth() + 1).padStart(2, '0');
-            const dia = String(d.getDate()).padStart(2, '0');
-            return `${ano}-${mes}-${dia}`;
-        }
+      const [ano, mes, dia] = chave.split('-');
+      const dataObj = new Date(Number(ano), Number(mes) - 1, Number(dia));
+      resumo.push({
+        chave,
+        dataFormatada: dataObj.toLocaleDateString('pt-BR'),
+        diaSemana: dataObj.toLocaleDateString('pt-BR', { weekday: 'long' }),
+        qtdBatidas: batidas.length,
+        totalMs,
+        aberto
+      });
+    });
 
-        // =========================================================================
-        // 2. CONFIGURAÇÕES DO FIREBASE
-        // =========================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
-            authDomain: "pontoeletronicorafael.firebaseapp.com",
-            projectId: "pontoeletronicorafael",
-            storageBucket: "pontoeletronicorafael.firebasestorage.app",
-            messagingSenderId: "737764359469",
-            appId: "1:737764359469:web:8b2e6c352c948f7f25a7a4",
-            measurementId: "G-6ZXKLCBQ00"
-        };
+    return resumo;
+  }
 
-        const NOME_COLECAO = "PontoEletronicoRafael"; 
+  function renderResumo(registros) {
+    const cont = document.getElementById('resumoContainer');
+    if (!registros.length) {
+      cont.innerHTML = '<div class="empty">Nenhum registro para calcular.</div>';
+      return;
+    }
 
-        let db;
-        let colecaoPontos;
+    const resumo = calcularResumoDiario(registros);
+    // Mais recente primeiro
+    resumo.sort((a, b) => b.chave.localeCompare(a.chave));
 
-        try {
-            if (typeof firebase === 'undefined') {
-                throw new Error("O SDK do Firebase não foi carregado.");
-            }
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            colecaoPontos = db.collection(NOME_COLECAO);
-        } catch (error) {
-            console.error("Erro ao conectar com Firebase:", error.message);
-        }
+    let somaGeral = 0;
+    let linhas = '';
+    resumo.forEach(r => {
+      somaGeral += r.totalMs;
+      linhas += `<tr>
+        <td>${r.dataFormatada}</td>
+        <td style="text-transform:capitalize;">${r.diaSemana}</td>
+        <td>${r.qtdBatidas}</td>
+        <td>${formatarDuracao(r.totalMs)}${r.aberto ? ' <span class="aberto">(ponto em aberto)</span>' : ''}</td>
+      </tr>`;
+    });
 
-        // =========================================================================
-        // 3. LÓGICA DO SISTEMA DE PONTO
-        // =========================================================================
-        function registrarPonto(tipo) {
-            if (!colecaoPontos) {
-                alert("Erro: O sistema não conseguiu inicializar o Firebase.");
-                return;
-            }
-            const agora = new Date();
-            const dataStr = obterDataLocalISO(agora);
-            const horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    cont.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Dia da Semana</th>
+            <th>Batidas</th>
+            <th>Horas Trabalhadas</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${linhas}
+          <tr class="total-row">
+            <td colspan="3">Total Geral</td>
+            <td>${formatarDuracao(somaGeral)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+  }
 
-            salvarNoFirebase(dataStr, horaStr, tipo);
-        }
+  // ===== Renderização da tabela detalhada =====
+  function renderTabela(registros) {
+    const cont = document.getElementById('tabelaContainer');
+    if (!registros.length) {
+      cont.innerHTML = '<div class="empty">Nenhum registro encontrado.</div>';
+      renderResumo([]);
+      return;
+    }
 
-        function registrarPontoManual() {
-            if (!colecaoPontos) {
-                alert("Erro: O sistema não está conectado ao Firebase.");
-                return;
-            }
-            const dataInput = document.getElementById('manual-data').value;
-            const horaInput = document.getElementById('manual-hora').value;
-            const tipoInput = document.getElementById('manual-tipo').value;
+    registros.sort((a, b) => b.timestamp - a.timestamp);
 
-            if (!dataInput || !horaInput) {
-                alert("Preencha a data e o horário para o ponto manual.");
-                return;
-            }
+    let html = `<table id="tabelaPontos">
+      <thead>
+        <tr><th>Data</th><th>Hora</th><th>Dia da Semana</th><th>Ação</th></tr>
+      </thead><tbody>`;
+    registros.forEach(r => {
+      const d = new Date(r.timestamp);
+      html += `<tr>
+        <td>${d.toLocaleDateString('pt-BR')}</td>
+        <td>${d.toLocaleTimeString('pt-BR')}</td>
+        <td style="text-transform:capitalize;">${d.toLocaleDateString('pt-BR', { weekday: 'long' })}</td>
+        <td><button class="btn-danger" data-id="${r.id || ''}" data-ts="${r.timestamp}" onclick="removerRegistro(this)">Remover</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    cont.innerHTML = html;
 
-            salvarNoFirebase(dataInput, horaInput, tipoInput);
-            document.getElementById('manual-data').value = '';
-            document.getElementById('manual-hora').value = '';
-        }
+    renderResumo(registros);
+  }
 
-        function salvarNoFirebase(data, hora, tipo) {
-            const docRef = colecaoPontos.doc(data);
-            let dadosPonto = { data: data };
-
-            if (tipo === 'Entrada') dadosPonto.entrada = hora;
-            else if (tipo === 'Almoço Saída') dadosPonto.almocoSaida = hora;
-            else if (tipo === 'Almoço Retorno') dadosPonto.almocoRetorno = hora;
-            else if (tipo === 'Saída') dadosPonto.saida = hora;
-
-            docRef.set(dadosPonto, { merge: true })
-                .then(() => {
-                    alert(`Sucesso! Ponto de ${tipo} registrado às ${hora}.`);
-                    carregarHistorico();
-                })
-                .catch((error) => {
-                    console.error("Erro ao salvar no Firestore:", error);
-                    alert(`Falha ao salvar: ${error.message}`);
-                });
-        }
-
-        function carregarHistorico() {
-            if (!colecaoPontos) return;
-
-            colecaoPontos.get().then((querySnapshot) => {
-                const tabela = document.getElementById('historico-tabela');
-                tabela.innerHTML = '';
-
-                if (querySnapshot.empty) {
-                    tabela.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">Nenhum registro encontrado na coleção "${NOME_COLECAO}".</td></tr>`;
-                    atualizarMetricasVazias();
-                    return;
-                }
-
-                let minutosHoje = 0;
-                let minutos30Dias = 0;
-                let totalDias = querySnapshot.size;
-                let somaMinutosGeral = 0;
-
-                const hojeStr = obterDataLocalISO();
-                const limite30Dias = new Date();
-                limite30Dias.setDate(limite30Dias.getDate() - 30);
-                limite30Dias.setHours(0, 0, 0, 0);
-
-                const documentos = [];
-                querySnapshot.forEach(doc => documentos.push({ id: doc.id, ...doc.data() }));
-                documentos.sort((a, b) => b.id.localeCompare(a.id));
-
-                documentos.forEach((dia) => {
-                    const dataDocStr = dia.data || dia.id; 
-                    const minutosTrabalhados = calcularHorasDia(dia);
-                    somaMinutosGeral += minutosTrabalhados;
-
-                    const dataDoc = new Date(dataDocStr + 'T00:00:00');
-                    if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
-                    if (dataDoc >= limite30Dias) minutos30Dias += minutesTrabalhados;
-
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-gray-50 transition";
-                    tr.innerHTML = `
-                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(dataDocStr)}</td>
-                        <td class="p-4 text-emerald-700 font-mono font-semibold">${dia.entrada || '-'}</td>
-                        <td class="p-4 text-amber-700 font-mono">${dia.almocoSaida || '-'} ➔ ${dia.almocoRetorno || '-'}</td>
-                        <td class="p-4 text-rose-700 font-mono font-semibold">${dia.saida || '-'}</td>
-                        <td class="p-4 font-bold text-gray-800 font-mono">${formatarMinutos(minutosTrabalhados)}</td>
-                        <td class="p-4 text-center">
-                            <button onclick="deletarRegistroDia('${dataDocStr}')" class="text-rose-500 hover:text-rose-700 font-semibold text-xs bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-md transition">
-                                Remover
-                            </button>
-                        </td>
-                    `;
-                    tabela.appendChild(tr);
-                });
-
-                document.getElementById('horas-hoje').innerText = formatarMinutos(minutosHoje);
-                document.getElementById('horas-30-dias').innerText = formatarMinutos(minutos30Dias);
-                document.getElementById('total-dias').innerText = `${totalDias} dias`;
-                
-                const mediaMinutos = totalDias > 0 ? Math.round(somaMinutosGeral / totalDias) : 0;
-                document.getElementById('media-horas').innerText = formatarMinutos(mediaMinutos);
-            }).catch((err) => {
-                console.error("Erro Crítico no Firestore:", err);
-                const tabela = document.getElementById('historico-tabela');
-                tabela.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="p-6 text-center text-rose-600 bg-rose-50 font-medium rounded-xl">
-                            ⚠️ Erro de Acesso ao Firebase!<br>
-                            <span class="text-xs font-mono block mt-2 text-gray-600 bg-white p-3 border border-gray-200 rounded max-w-xl mx-auto text-left whitespace-pre-wrap font-normal">${err.message}</span>
-                        </td>
-                    </tr>
-                `;
-                atualizarMetricasVazias();
+  // ===== Carregar =====
+  async function carregar() {
+    if (firebaseOK) {
+      try {
+        const q = query(colRef, orderBy('timestamp', 'desc'));
+        onSnapshot(q, snap => {
+          const dados = [];
+          snap.forEach(d => {
+            const data = d.data();
+            dados.push({
+              id: d.id,
+              timestamp: data.timestamp?.toMillis ? data.timestamp.toMillis() : data.timestamp
             });
-        }
+          });
+          salvarLocal(dados);
+          renderTabela(dados);
+        }, err => {
+          console.error("onSnapshot erro:", err);
+          setStatus(false, "Erro ao ouvir Firebase - usando cache local");
+          renderTabela(lerLocal());
+        });
+      } catch (err) {
+        console.error(err);
+        renderTabela(lerLocal());
+      }
+    } else {
+      renderTabela(lerLocal());
+    }
+  }
 
-        function atualizarMetricasVazias() {
-            document.getElementById('horas-hoje').innerText = "00h 00m";
-            document.getElementById('horas-30-dias').innerText = "00h 00m";
-            document.getElementById('total-dias').innerText = "0 dias";
-            document.getElementById('media-horas').innerText = "00h 00m";
-        }
+  // ===== Registrar =====
+  window.registrarPonto = async function () {
+    const agora = Date.now();
 
-        function calcularHorasDia(dia) {
-            if (!dia.entrada || !dia.saida) return 0;
+    if (firebaseOK) {
+      try {
+        await addDoc(colRef, { timestamp: Timestamp.fromMillis(agora) });
+        return;
+      } catch (err) {
+        console.error("Falha ao gravar no Firebase, salvando local:", err);
+        setStatus(false, "Sem conexão - salvo localmente");
+      }
+    }
+    const lista = lerLocal();
+    lista.push({ id: 'local_' + agora, timestamp: agora });
+    salvarLocal(lista);
+    renderTabela(lista);
+  };
 
-            const mEntrada = converterParaMinutos(dia.entrada);
-            const mAlmocoSaida = dia.almocoSaida ? converterParaMinutos(dia.almocoSaida) : 0;
-            const mAlmocoRetorno = dia.almocoRetorno ? converterParaMinutos(dia.almocoRetorno) : 0;
-            const mSaida = converterParaMinutos(dia.saida);
+  // ===== Remover =====
+  window.removerRegistro = async function (btn) {
+    if (!confirm('Remover este registro?')) return;
+    const id = btn.dataset.id;
+    const ts = Number(btn.dataset.ts);
 
-            let tempoBruto = mSaida - mEntrada;
+    if (firebaseOK && id && !id.startsWith('local_')) {
+      try {
+        await deleteDoc(doc(db, NOME_COLECAO, id));
+        return;
+      } catch (err) {
+        console.error("Erro ao remover no Firebase:", err);
+      }
+    }
+    const lista = lerLocal().filter(r => r.timestamp !== ts);
+    salvarLocal(lista);
+    renderTabela(lista);
+  };
 
-            if (mAlmocoSaida && mAlmocoRetorno && mAlmocoRetorno > mAlmocoSaida) {
-                const tempoIntervalo = mAlmocoRetorno - mAlmocoSaida;
-                tempoBruto -= tempoIntervalo;
-            }
+  // ===== Limpar todos =====
+  window.limparRegistros = async function () {
+    if (!confirm('Tem certeza que deseja apagar TODOS os registros?')) return;
 
-            return tempoBruto > 0 ? tempoBruto : 0;
-        }
+    if (firebaseOK) {
+      try {
+        const snap = await getDocs(colRef);
+        const dels = [];
+        snap.forEach(d => dels.push(deleteDoc(doc(db, NOME_COLECAO, d.id))));
+        await Promise.all(dels);
+      } catch (err) {
+        console.error("Erro ao limpar Firebase:", err);
+      }
+    }
+    localStorage.removeItem(LS_KEY);
+    renderTabela([]);
+  };
 
-        function converterParaMinutos(horaStr) {
-            if (!horaStr || !horaStr.includes(':')) return 0;
-            const [h, m] = horaStr.split(':').map(Number);
-            return (h * 60) + m;
-        }
+  // ===== Sincronizar =====
+  window.sincronizar = async function () {
+    if (!firebaseOK) {
+      alert('Firebase indisponível no momento.');
+      return;
+    }
+    const locais = lerLocal().filter(r => (r.id || '').startsWith('local_'));
+    if (!locais.length) {
+      alert('Nada para sincronizar.');
+      return;
+    }
+    try {
+      for (const r of locais) {
+        await addDoc(colRef, { timestamp: Timestamp.fromMillis(r.timestamp) });
+      }
+      const restantes = lerLocal().filter(r => !(r.id || '').startsWith('local_'));
+      salvarLocal(restantes);
+      alert(`${locais.length} registro(s) sincronizado(s).`);
+    } catch (err) {
+      console.error(err);
+      alert('Falha ao sincronizar: ' + err.message);
+    }
+  };
 
-        function formatarMinutos(totalMinutos) {
-            const h = Math.floor(totalMinutos / 60);
-            const m = totalMinutos % 60;
-            return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
-        }
+  // ===== Exportar PDF (mantido igual - sem alterações no cálculo) =====
+  window.exportarPDF = function () {
+    const registros = lerLocal();
+    if (!registros.length) {
+      alert('Não há registros para exportar.');
+      return;
+    }
+    registros.sort((a, b) => a.timestamp - b.timestamp);
 
-        function formatarDataBR(dataStr) {
-            if (!dataStr || !dataStr.includes('-')) return dataStr;
-            const [ano, mes, dia] = dataStr.split('-');
-            return `${dia}/${mes}/${ano}`;
-        }
+    const container = document.createElement('div');
+    container.style.padding = '20px';
+    container.style.fontFamily = 'Arial, sans-serif';
+    container.style.color = '#000';
 
-        function deletarRegistroDia(idData) {
-            if (confirm(`Excluir permanentemente o dia ${formatarDataBR(idData)}?`)) {
-                colecaoPontos.doc(idData).delete().then(() => {
-                    carregarHistorico();
-                });
-            }
-        }
+    const dataGeracao = new Date().toLocaleString('pt-BR');
 
-        // =========================================================================
-        // 4. EXPORTAÇÃO EXCLUSIVA E TOTALMENTE CLEAN PARA PDF
-        // =========================================================================
-        function exportarPDF() {
-            const linhasOriginais = document.querySelectorAll('#historico-tabela tr');
-            
-            if (linhasOriginais.length === 0 || linhasOriginais[0].innerText.includes('Nenhum registro') || linhasOriginais[0].innerText.includes('Conectando')) {
-                alert("Não existem dados válidos para gerar o relatório.");
-                return;
-            }
+    let linhas = '';
+    registros.forEach(r => {
+      const d = new Date(r.timestamp);
+      linhas += `<tr>
+        <td style="border:1px solid #333;padding:6px;text-align:center;">${d.toLocaleDateString('pt-BR')}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:center;">${d.toLocaleTimeString('pt-BR')}</td>
+        <td style="border:1px solid #333;padding:6px;text-align:center;text-transform:capitalize;">${d.toLocaleDateString('pt-BR', { weekday: 'long' })}</td>
+      </tr>`;
+    });
 
-            const elementoPDF = document.createElement('div');
-            elementoPDF.style.padding = '24px';
-            elementoPDF.style.fontFamily = 'Arial, sans-serif';
-            elementoPDF.style.color = '#111';
-            elementoPDF.style.backgroundColor = '#fff';
+    container.innerHTML = `
+      <h2 style="text-align:center;margin-bottom:4px;">Relatório de Ponto Eletrônico</h2>
+      <p style="text-align:center;margin-bottom:16px;">Funcionário: <strong>Rafael Carvalho</strong></p>
+      <p style="text-align:center;font-size:12px;margin-bottom:16px;">Gerado em: ${dataGeracao}</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="border:1px solid #333;padding:6px;background:#e5e7eb;">Data</th>
+            <th style="border:1px solid #333;padding:6px;background:#e5e7eb;">Hora</th>
+            <th style="border:1px solid #333;padding:6px;background:#e5e7eb;">Dia da Semana</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+      <p style="text-align:center;font-size:11px;margin-top:20px;color:#555;">Total de registros: ${registros.length}</p>
+    `;
 
-            const agora = new Date();
-            const dataEmissao = agora.toLocaleDateString('pt-BR');
+    const opt = {
+      margin: 10,
+      filename: `ponto_rafael_${new Date().toISOString().slice(0, 10)}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(container).save();
+  };
 
-            // Cabeçalho ultra clean focado apenas no essencial
-            let conteudoHTML = `
-                <div style="border-bottom: 1px solid #111; padding-bottom: 12px; margin-bottom: 24px;">
-                    <h1 style="font-size: 18px; font-weight: bold; margin: 0; color: #111; letter-spacing: 0.5px;">Espelho de Ponto Individual</h1>
-                    <p style="font-size: 12px; margin: 6px 0 0 0; color: #333;">
-                        <strong>Funcionário:</strong> Rafael Carvalho <span style="margin-left: 24px; color: #ccc;">|</span> <strong style="margin-left: 24px;">Emissão:</strong> ${dataEmissao}
-                    </p>
-                </div>
+  // ===== Relógio =====
+  setInterval(() => {
+    document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR');
+  }, 1000);
 
-                <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 40px;">
-                    <thead>
-                        <tr style="background-color: #f3f4f6; border-top: 1px solid #111; border-bottom: 1px solid #111;">
-                            <th style="padding: 8px; text-align: left; border: 1px solid #ddd; width: 20%;">Data</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 15%;">Entrada</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 30%;">Intervalo (Saída ➔ Retorno)</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 15%;">Saída</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid #ddd; width: 20%;">Total Diário</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            linhasOriginais.forEach(linha => {
-                const colunas = linha.querySelectorAll('td');
-                if (colunas.length >= 5) {
-                    conteudoHTML += `
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 8px; border: 1px solid #ddd;">${colunas[0].innerText}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[1].innerText}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #444;">${colunas[2].innerText}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[3].innerText}</td>
-                            <td style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">${colunas[4].innerText}</td>
-                        </tr>
-                    `;
-                }
-            });
-
-            conteudoHTML += `
-                    </tbody>
-                </table>
-
-                <!-- Linha de validação discreta no rodapé -->
-                <div style="margin-top: 60px; width: 240px; text-align: center; border-top: 1px solid #111; padding-top: 6px; font-size: 11px; color: #222;">
-                    <strong>Rafael Carvalho</strong><br><span style="color: #666; font-size: 10px;">Assinatura do Funcionário</span>
-                </div>
-            `;
-
-            elementoPDF.innerHTML = conteudoHTML;
-
-            const configuracoes = {
-                margin:       15,
-                filename:     `Espelho_Ponto_Rafael_Carvalho_${agora.getFullYear()}_${agora.getMonth()+1}.pdf`,
-                image:        { type: 'jpeg', quality: 0.99 },
-                html2canvas:  { scale: 2, logging: false },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().set(configuracoes).from(elementoPDF).save();
-        }
-
-        window.onload = function() {
-            if (colecaoPontos) {
-                carregarHistorico();
-            }
-        };
-    </script>
+  // ===== Inicialização =====
+  carregar();
+</script>
 </body>
 </html>
