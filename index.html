@@ -1,6 +1,3 @@
-Aqui está o código completo do seu arquivo `index.html`. Já apliquei a correção na linha onde o `minutesTrabalhados` quebrava o script, assim você pode apenas copiar tudo e substituir o conteúdo do seu arquivo atual com segurança.
-
-```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -264,7 +261,7 @@ Aqui está o código completo do seu arquivo `index.html`. Já apliquei a corre�
 
                     const dataDoc = new Date(dataDocStr + 'T00:00:00');
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
-                    if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
+                    if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados; // Corrigido definitivamente aqui!
 
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-gray-50 transition";
@@ -329,6 +326,9 @@ Aqui está o código completo do seu arquivo `index.html`. Já apliquei a corre�
             return tempoBruto > 0 ? tempoBruto : 0;
         }
 
+        // =========================================================================
+        // 4. EXPORTAÇÃO EXCLUSIVA E TOTALMENTE CLEAN PARA PDF
+        // =========================================================================
         function converterParaMinutos(horaStr) {
             if (!horaStr || !horaStr.includes(':')) return 0;
             const [h, m] = horaStr.split(':').map(Number);
@@ -355,13 +355,10 @@ Aqui está o código completo do seu arquivo `index.html`. Já apliquei a corre�
             }
         }
 
-        // =========================================================================
-        // 4. EXPORTAÇÃO EXCLUSIVA E TOTALMENTE CLEAN PARA PDF
-        // =========================================================================
         function exportarPDF() {
-            const linhasOriginais = document.querySelectorAll('#historico-tabela tr');
+            const linesOriginal = document.querySelectorAll('#historico-tabela tr');
             
-            if (linhasOriginais.length === 0 || linhasOriginais[0].innerText.includes('Nenhum registro') || linhasOriginais[0].innerText.includes('Conectando')) {
+            if (linesOriginal.length === 0 || linesOriginal[0].innerText.includes('Nenhum registro') || linesOriginal[0].innerText.includes('Conectando')) {
                 alert("Não existem dados válidos para gerar o relatório.");
                 return;
             }
@@ -375,7 +372,6 @@ Aqui está o código completo do seu arquivo `index.html`. Já apliquei a corre�
             const agora = new Date();
             const dataEmissao = agora.toLocaleDateString('pt-BR');
 
-            // Cabeçalho ultra clean focado apenas no essencial
             let conteudoHTML = `
                 <div style="border-bottom: 1px solid #111; padding-bottom: 12px; margin-bottom: 24px;">
                     <h1 style="font-size: 18px; font-weight: bold; margin: 0; color: #111; letter-spacing: 0.5px;">Espelho de Ponto Individual</h1>
@@ -397,7 +393,7 @@ Aqui está o código completo do seu arquivo `index.html`. Já apliquei a corre�
                     <tbody>
             `;
 
-            linhasOriginais.forEach(linha => {
+            linesOriginal.forEach(linha => {
                 const colunas = linha.querySelectorAll('td');
                 if (colunas.length >= 5) {
                     conteudoHTML += `
