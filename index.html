@@ -1,417 +1,398 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
 <title>Ponto Eletrônico - Rafael Carvalho</title>
-
-<!-- html2pdf -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-  body { background: #f4f6f9; color: #222; padding: 20px; }
-  .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.08); padding: 24px; }
-  h1 { text-align: center; margin-bottom: 6px; color: #1e3a8a; }
-  .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
-  .status { text-align:center; font-size:12px; margin-bottom:16px; padding:6px; border-radius:6px; }
-  .status.online { background:#d1fae5; color:#065f46; }
-  .status.offline { background:#fee2e2; color:#991b1b; }
-  .actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:20px; }
-  button { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: opacity .2s; }
-  button:hover { opacity: .9; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .btn-primary { background: #1e3a8a; color: #fff; }
-  .btn-success { background: #16a34a; color: #fff; }
-  .btn-danger  { background: #dc2626; color: #fff; }
-  .btn-warn    { background: #f59e0b; color: #fff; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 14px; }
-  th { background: #1e3a8a; color: #fff; }
-  tr:nth-child(even) { background: #f9fafb; }
-  .empty { text-align:center; padding:20px; color:#888; }
-  #relogio { text-align:center; font-size:28px; font-weight:600; color:#1e3a8a; margin-bottom:14px; }
-
-  .section-title { margin: 24px 0 8px; color: #1e3a8a; font-size: 16px; border-bottom: 2px solid #1e3a8a; padding-bottom: 4px; }
-  .resumo table th { background: #16a34a; }
-  .resumo .aberto { color: #b45309; font-style: italic; font-size: 12px; }
-  .resumo .total-row td { background: #eef2ff; font-weight: 600; }
+  :root{
+    --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --accent2:#22c55e;
+    --danger:#ef4444; --warn:#f59e0b; --text:#e2e8f0; --muted:#94a3b8;
+  }
+  *{box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+  body{margin:0;background:var(--bg);color:var(--text);padding:20px;min-height:100vh}
+  h1{margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:20px}
+  .card{background:var(--card);border-radius:14px;padding:20px;margin-bottom:20px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+  .clock{font-size:42px;font-weight:700;text-align:center;color:var(--accent);letter-spacing:2px}
+  .date{text-align:center;color:var(--muted);margin-bottom:16px}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  button{cursor:pointer;border:none;border-radius:8px;padding:12px 18px;font-weight:600;font-size:14px;transition:transform .1s,opacity .2s}
+  button:hover{transform:translateY(-2px)}
+  button:active{transform:translateY(0)}
+  .btn-primary{background:var(--accent);color:#0f172a}
+  .btn-success{background:var(--accent2);color:#0f172a}
+  .btn-danger{background:var(--danger);color:#fff}
+  .btn-warn{background:var(--warn);color:#0f172a}
+  .btn-ghost{background:transparent;color:var(--text);border:1px solid #334155}
+  .day-block{background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;margin-bottom:12px}
+  .day-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+  .day-date{font-weight:700;color:var(--accent)}
+  .day-total{background:var(--accent2);color:#0f172a;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700}
+  .day-total.open{background:var(--warn)}
+  .punch{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #334155;font-size:14px}
+  .punch:last-child{border-bottom:none}
+  .punch-type{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;margin-right:8px}
+  .type-entrada{background:#22c55e33;color:#22c55e}
+  .type-saida{background:#ef444433;color:#ef4444}
+  .punch-actions{display:flex;gap:6px}
+  .icon-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px}
+  .icon-btn:hover{color:var(--danger)}
+  .empty{text-align:center;color:var(--muted);padding:30px}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--accent2);color:#0f172a;padding:12px 20px;border-radius:8px;font-weight:600;opacity:0;transform:translateY(20px);transition:all .3s;z-index:1000}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.error{background:var(--danger);color:#fff}
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  .modal-overlay.show{display:flex}
+  .modal{background:var(--card);border-radius:14px;padding:24px;max-width:400px;width:100%}
+  .modal h3{margin:0 0 16px;color:var(--accent)}
+  .form-group{margin-bottom:14px}
+  .form-group label{display:block;margin-bottom:6px;color:var(--muted);font-size:13px}
+  .form-group input,.form-group select{width:100%;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:8px;color:var(--text);font-size:14px}
+  .form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent)}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+  .status-bar{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:10px}
+  .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent2);margin-right:4px}
+  .status-dot.offline{background:var(--danger)}
 </style>
 </head>
 <body>
 
-<div class="container">
-  <h1>Ponto Eletrônico</h1>
-  <p class="subtitle">Funcionário: Rafael Carvalho</p>
+<h1>⏱️ Ponto Eletrônico</h1>
+<div class="sub">Rafael Carvalho</div>
 
-  <div id="status" class="status offline">Conectando ao Firebase...</div>
-  <div id="relogio">--:--:--</div>
-
-  <div class="actions">
-    <button class="btn-success" onclick="registrarPonto()">Registrar Ponto</button>
-    <button class="btn-primary" onclick="exportarPDF()">Exportar PDF</button>
-    <button class="btn-warn" onclick="sincronizar()">Sincronizar</button>
-    <button class="btn-danger" onclick="limparRegistros()">Limpar Registros</button>
+<div class="card">
+  <div class="clock" id="clock">--:--:--</div>
+  <div class="date" id="today">--</div>
+  <div class="btn-row">
+    <button class="btn-success" onclick="registrarPonto('entrada')">🟢 Entrada</button>
+    <button class="btn-danger" onclick="registrarPonto('saida')">🔴 Saída</button>
+    <button class="btn-warn" onclick="abrirModal()">✏️ Inserção Manual</button>
+    <button class="btn-primary" onclick="exportarPDF()">📄 Exportar PDF</button>
   </div>
-
-  <h3 class="section-title">Resumo Diário de Horas Trabalhadas</h3>
-  <div id="resumoContainer" class="resumo">
-    <div class="empty">Nenhum registro para calcular.</div>
-  </div>
-
-  <h3 class="section-title">Registros de Ponto</h3>
-  <div id="tabelaContainer">
-    <div class="empty">Nenhum registro encontrado.</div>
+  <div class="status-bar">
+    <span><span class="status-dot" id="statusDot"></span><span id="statusText">Conectado</span></span>
+    <span id="regCount">0 registros</span>
   </div>
 </div>
 
-<!-- Firebase SDK modular -->
+<div class="card">
+  <h3 style="margin:0 0 14px;color:var(--accent)">📋 Histórico</h3>
+  <div id="historico"><div class="empty">Carregando...</div></div>
+</div>
+
+<!-- Modal Inserção Manual -->
+<div class="modal-overlay" id="modalManual">
+  <div class="modal">
+    <h3>✏️ Inserção Manual</h3>
+    <div class="form-group">
+      <label>Data</label>
+      <input type="date" id="manualData"/>
+    </div>
+    <div class="form-group">
+      <label>Hora</label>
+      <input type="time" id="manualHora" step="1"/>
+    </div>
+    <div class="form-group">
+      <label>Tipo</label>
+      <select id="manualTipo">
+        <option value="entrada">🟢 Entrada</option>
+        <option value="saida">🔴 Saída</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-success" onclick="salvarManual()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getFirestore, collection, addDoc, getDocs,
-    deleteDoc, doc, query, orderBy, onSnapshot, Timestamp
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDcqSPsYRbLOG--o1QxytP4HXBq9yBO8Jc",
     authDomain: "pontoeletronicorafael.firebaseapp.com",
     projectId: "pontoeletronicorafael",
-    storageBucket: "pontoeletronicorafael.firebasestorage.app",
-    messagingSenderId: "737764359469",
-    appId: "1:737764359469:web:8b2e6c352c948f7f25a7a4",
-    measurementId: "G-6ZXKLCBQ00"
+    storageBucket: "pontoeletronicorafael.appspot.com",
+    messagingSenderId: "000000000000",
+    appId: "1:000000000000:web:0000000000000000000000"
   };
+  const NOME_COLECAO = "pontos";
 
-  const NOME_COLECAO = "PontoEletronicoRafael";
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-  let app, db, colRef;
-  let firebaseOK = false;
+  window.fb = { db, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, NOME_COLECAO };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
 
+<!-- html2pdf -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+let registros = [];
+let firebaseReady = false;
+
+window.addEventListener('firebase-ready', async () => {
+  firebaseReady = true;
+  atualizarStatus(true);
+  await carregarDoFirebase();
+});
+
+// Se firebase demorar / falhar, carrega local
+setTimeout(() => {
+  if (!firebaseReady) {
+    atualizarStatus(false);
+    carregarLocal();
+  }
+}, 3000);
+
+function atualizarStatus(online) {
+  document.getElementById('statusDot').classList.toggle('offline', !online);
+  document.getElementById('statusText').textContent = online ? 'Conectado ao Firebase' : 'Offline (localStorage)';
+}
+
+function toast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// Relógio
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('pt-BR');
+  document.getElementById('today').textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+}
+setInterval(tickClock, 1000); tickClock();
+
+// ========== CARREGAMENTO ==========
+async function carregarDoFirebase() {
   try {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    colRef = collection(db, NOME_COLECAO);
-    firebaseOK = true;
-    setStatus(true, "Conectado ao Firebase");
-  } catch (err) {
-    console.error("Erro Firebase:", err);
-    setStatus(false, "Firebase indisponível - usando armazenamento local");
+    const q = window.fb.query(
+      window.fb.collection(window.fb.db, window.fb.NOME_COLECAO),
+      window.fb.orderBy('timestamp', 'desc')
+    );
+    const snap = await window.fb.getDocs(q);
+    registros = [];
+    snap.forEach(d => registros.push({ id: d.id, ...d.data() }));
+    localStorage.setItem('pontos', JSON.stringify(registros));
+    renderHistorico();
+  } catch (e) {
+    console.error('Erro Firebase:', e);
+    atualizarStatus(false);
+    carregarLocal();
+    toast('Erro ao carregar do Firebase, usando cache local', true);
   }
+}
 
-  function setStatus(ok, msg) {
-    const el = document.getElementById('status');
-    el.className = 'status ' + (ok ? 'online' : 'offline');
-    el.textContent = msg;
-  }
+function carregarLocal() {
+  registros = JSON.parse(localStorage.getItem('pontos') || '[]');
+  renderHistorico();
+}
 
-  // ===== Estado local =====
-  const LS_KEY = 'pontos_rafael';
+// ========== REGISTRO ==========
+async function registrarPonto(tipo) {
+  const agora = new Date();
+  await salvarRegistro({
+    tipo,
+    timestamp: agora.getTime(),
+    data: agora.toLocaleDateString('pt-BR'),
+    hora: agora.toLocaleTimeString('pt-BR'),
+    manual: false
+  });
+  toast(`✅ ${tipo === 'entrada' ? 'Entrada' : 'Saída'} registrada`);
+}
 
-  function lerLocal() {
-    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
-    catch { return []; }
-  }
-  function salvarLocal(lista) {
-    localStorage.setItem(LS_KEY, JSON.stringify(lista));
-  }
+window.registrarPonto = registrarPonto;
 
-  // ===== Formatador de duração =====
-  function formatarDuracao(ms) {
-    if (ms <= 0) return '00h 00min';
-    const totalMin = Math.floor(ms / 60000);
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}min`;
-  }
-
-  // ===== Cálculo de horas por dia =====
-  function calcularResumoDiario(registros) {
-    // Agrupa por data (chave: yyyy-mm-dd)
-    const grupos = {};
-    registros.forEach(r => {
-      const d = new Date(r.timestamp);
-      const chave = d.toISOString().slice(0, 10);
-      if (!grupos[chave]) grupos[chave] = [];
-      grupos[chave].push(r.timestamp);
-    });
-
-    // Para cada dia, ordena e pareia
-    const resumo = [];
-    Object.keys(grupos).sort().forEach(chave => {
-      const batidas = grupos[chave].sort((a, b) => a - b);
-      let totalMs = 0;
-      let aberto = false;
-
-      for (let i = 0; i < batidas.length; i += 2) {
-        const entrada = batidas[i];
-        const saida = batidas[i + 1];
-        if (saida !== undefined) {
-          totalMs += (saida - entrada);
-        } else {
-          aberto = true;
-        }
-      }
-
-      const [ano, mes, dia] = chave.split('-');
-      const dataObj = new Date(Number(ano), Number(mes) - 1, Number(dia));
-      resumo.push({
-        chave,
-        dataFormatada: dataObj.toLocaleDateString('pt-BR'),
-        diaSemana: dataObj.toLocaleDateString('pt-BR', { weekday: 'long' }),
-        qtdBatidas: batidas.length,
-        totalMs,
-        aberto
-      });
-    });
-
-    return resumo;
-  }
-
-  function renderResumo(registros) {
-    const cont = document.getElementById('resumoContainer');
-    if (!registros.length) {
-      cont.innerHTML = '<div class="empty">Nenhum registro para calcular.</div>';
-      return;
-    }
-
-    const resumo = calcularResumoDiario(registros);
-    // Mais recente primeiro
-    resumo.sort((a, b) => b.chave.localeCompare(a.chave));
-
-    let somaGeral = 0;
-    let linhas = '';
-    resumo.forEach(r => {
-      somaGeral += r.totalMs;
-      linhas += `<tr>
-        <td>${r.dataFormatada}</td>
-        <td style="text-transform:capitalize;">${r.diaSemana}</td>
-        <td>${r.qtdBatidas}</td>
-        <td>${formatarDuracao(r.totalMs)}${r.aberto ? ' <span class="aberto">(ponto em aberto)</span>' : ''}</td>
-      </tr>`;
-    });
-
-    cont.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Dia da Semana</th>
-            <th>Batidas</th>
-            <th>Horas Trabalhadas</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${linhas}
-          <tr class="total-row">
-            <td colspan="3">Total Geral</td>
-            <td>${formatarDuracao(somaGeral)}</td>
-          </tr>
-        </tbody>
-      </table>
-    `;
-  }
-
-  // ===== Renderização da tabela detalhada =====
-  function renderTabela(registros) {
-    const cont = document.getElementById('tabelaContainer');
-    if (!registros.length) {
-      cont.innerHTML = '<div class="empty">Nenhum registro encontrado.</div>';
-      renderResumo([]);
-      return;
-    }
-
-    registros.sort((a, b) => b.timestamp - a.timestamp);
-
-    let html = `<table id="tabelaPontos">
-      <thead>
-        <tr><th>Data</th><th>Hora</th><th>Dia da Semana</th><th>Ação</th></tr>
-      </thead><tbody>`;
-    registros.forEach(r => {
-      const d = new Date(r.timestamp);
-      html += `<tr>
-        <td>${d.toLocaleDateString('pt-BR')}</td>
-        <td>${d.toLocaleTimeString('pt-BR')}</td>
-        <td style="text-transform:capitalize;">${d.toLocaleDateString('pt-BR', { weekday: 'long' })}</td>
-        <td><button class="btn-danger" data-id="${r.id || ''}" data-ts="${r.timestamp}" onclick="removerRegistro(this)">Remover</button></td>
-      </tr>`;
-    });
-    html += '</tbody></table>';
-    cont.innerHTML = html;
-
-    renderResumo(registros);
-  }
-
-  // ===== Carregar =====
-  async function carregar() {
-    if (firebaseOK) {
-      try {
-        const q = query(colRef, orderBy('timestamp', 'desc'));
-        onSnapshot(q, snap => {
-          const dados = [];
-          snap.forEach(d => {
-            const data = d.data();
-            dados.push({
-              id: d.id,
-              timestamp: data.timestamp?.toMillis ? data.timestamp.toMillis() : data.timestamp
-            });
-          });
-          salvarLocal(dados);
-          renderTabela(dados);
-        }, err => {
-          console.error("onSnapshot erro:", err);
-          setStatus(false, "Erro ao ouvir Firebase - usando cache local");
-          renderTabela(lerLocal());
-        });
-      } catch (err) {
-        console.error(err);
-        renderTabela(lerLocal());
-      }
-    } else {
-      renderTabela(lerLocal());
-    }
-  }
-
-  // ===== Registrar =====
-  window.registrarPonto = async function () {
-    const agora = Date.now();
-
-    if (firebaseOK) {
-      try {
-        await addDoc(colRef, { timestamp: Timestamp.fromMillis(agora) });
-        return;
-      } catch (err) {
-        console.error("Falha ao gravar no Firebase, salvando local:", err);
-        setStatus(false, "Sem conexão - salvo localmente");
-      }
-    }
-    const lista = lerLocal();
-    lista.push({ id: 'local_' + agora, timestamp: agora });
-    salvarLocal(lista);
-    renderTabela(lista);
-  };
-
-  // ===== Remover =====
-  window.removerRegistro = async function (btn) {
-    if (!confirm('Remover este registro?')) return;
-    const id = btn.dataset.id;
-    const ts = Number(btn.dataset.ts);
-
-    if (firebaseOK && id && !id.startsWith('local_')) {
-      try {
-        await deleteDoc(doc(db, NOME_COLECAO, id));
-        return;
-      } catch (err) {
-        console.error("Erro ao remover no Firebase:", err);
-      }
-    }
-    const lista = lerLocal().filter(r => r.timestamp !== ts);
-    salvarLocal(lista);
-    renderTabela(lista);
-  };
-
-  // ===== Limpar todos =====
-  window.limparRegistros = async function () {
-    if (!confirm('Tem certeza que deseja apagar TODOS os registros?')) return;
-
-    if (firebaseOK) {
-      try {
-        const snap = await getDocs(colRef);
-        const dels = [];
-        snap.forEach(d => dels.push(deleteDoc(doc(db, NOME_COLECAO, d.id))));
-        await Promise.all(dels);
-      } catch (err) {
-        console.error("Erro ao limpar Firebase:", err);
-      }
-    }
-    localStorage.removeItem(LS_KEY);
-    renderTabela([]);
-  };
-
-  // ===== Sincronizar =====
-  window.sincronizar = async function () {
-    if (!firebaseOK) {
-      alert('Firebase indisponível no momento.');
-      return;
-    }
-    const locais = lerLocal().filter(r => (r.id || '').startsWith('local_'));
-    if (!locais.length) {
-      alert('Nada para sincronizar.');
-      return;
-    }
+async function salvarRegistro(reg) {
+  if (firebaseReady) {
     try {
-      for (const r of locais) {
-        await addDoc(colRef, { timestamp: Timestamp.fromMillis(r.timestamp) });
-      }
-      const restantes = lerLocal().filter(r => !(r.id || '').startsWith('local_'));
-      salvarLocal(restantes);
-      alert(`${locais.length} registro(s) sincronizado(s).`);
-    } catch (err) {
-      console.error(err);
-      alert('Falha ao sincronizar: ' + err.message);
+      const ref = await window.fb.addDoc(
+        window.fb.collection(window.fb.db, window.fb.NOME_COLECAO),
+        reg
+      );
+      reg.id = ref.id;
+    } catch (e) {
+      console.error('Erro ao salvar Firebase:', e);
+      toast('Salvo local, Firebase falhou', true);
     }
-  };
+  }
+  registros.unshift(reg);
+  registros.sort((a,b) => b.timestamp - a.timestamp);
+  localStorage.setItem('pontos', JSON.stringify(registros));
+  renderHistorico();
+}
 
-  // ===== Exportar PDF (mantido igual - sem alterações no cálculo) =====
-  window.exportarPDF = function () {
-    const registros = lerLocal();
-    if (!registros.length) {
-      alert('Não há registros para exportar.');
-      return;
-    }
-    registros.sort((a, b) => a.timestamp - b.timestamp);
+// ========== INSERÇÃO MANUAL ==========
+function abrirModal() {
+  const hoje = new Date();
+  document.getElementById('manualData').value = hoje.toISOString().slice(0,10);
+  document.getElementById('manualHora').value = hoje.toTimeString().slice(0,8);
+  document.getElementById('modalManual').classList.add('show');
+}
+function fecharModal() {
+  document.getElementById('modalManual').classList.remove('show');
+}
+window.abrirModal = abrirModal;
+window.fecharModal = fecharModal;
 
-    const container = document.createElement('div');
-    container.style.padding = '20px';
-    container.style.fontFamily = 'Arial, sans-serif';
-    container.style.color = '#000';
+async function salvarManual() {
+  const data = document.getElementById('manualData').value;
+  const hora = document.getElementById('manualHora').value;
+  const tipo = document.getElementById('manualTipo').value;
 
-    const dataGeracao = new Date().toLocaleString('pt-BR');
+  if (!data || !hora) { toast('Preencha data e hora', true); return; }
 
-    let linhas = '';
-    registros.forEach(r => {
-      const d = new Date(r.timestamp);
-      linhas += `<tr>
-        <td style="border:1px solid #333;padding:6px;text-align:center;">${d.toLocaleDateString('pt-BR')}</td>
-        <td style="border:1px solid #333;padding:6px;text-align:center;">${d.toLocaleTimeString('pt-BR')}</td>
-        <td style="border:1px solid #333;padding:6px;text-align:center;text-transform:capitalize;">${d.toLocaleDateString('pt-BR', { weekday: 'long' })}</td>
-      </tr>`;
+  const [ano,mes,dia] = data.split('-');
+  const [h,m,s='00'] = hora.split(':');
+  const dt = new Date(+ano, +mes-1, +dia, +h, +m, +s);
+
+  await salvarRegistro({
+    tipo,
+    timestamp: dt.getTime(),
+    data: dt.toLocaleDateString('pt-BR'),
+    hora: dt.toLocaleTimeString('pt-BR'),
+    manual: true
+  });
+  fecharModal();
+  toast('✏️ Registro manual salvo');
+}
+window.salvarManual = salvarManual;
+
+// ========== EXCLUSÃO ==========
+async function excluirRegistro(id, timestamp) {
+  if (!confirm('Excluir este registro?')) return;
+  if (firebaseReady && id) {
+    try {
+      await window.fb.deleteDoc(window.fb.doc(window.fb.db, window.fb.NOME_COLECAO, id));
+    } catch(e) { console.error(e); toast('Erro ao excluir do Firebase', true); }
+  }
+  registros = registros.filter(r => (r.id && r.id !== id) && r.timestamp !== timestamp);
+  registros = registros.filter(r => !(r.id === id || r.timestamp === timestamp));
+  localStorage.setItem('pontos', JSON.stringify(registros));
+  renderHistorico();
+  toast('🗑️ Registro excluído');
+}
+window.excluirRegistro = excluirRegistro;
+
+// ========== HISTÓRICO COM CÁLCULO ==========
+function renderHistorico() {
+  document.getElementById('regCount').textContent = `${registros.length} registro(s)`;
+  const container = document.getElementById('historico');
+  if (registros.length === 0) {
+    container.innerHTML = '<div class="empty">Nenhum registro ainda.</div>';
+    return;
+  }
+
+  // agrupa por data
+  const grupos = {};
+  registros.forEach(r => {
+    if (!grupos[r.data]) grupos[r.data] = [];
+    grupos[r.data].push(r);
+  });
+
+  // ordena datas desc
+  const datasOrdenadas = Object.keys(grupos).sort((a,b) => {
+    const [da,ma,ya] = a.split('/'); const [db,mb,yb] = b.split('/');
+    return new Date(yb,mb-1,db) - new Date(ya,ma-1,da);
+  });
+
+  let html = '';
+  datasOrdenadas.forEach(data => {
+    const lista = grupos[data].slice().sort((a,b) => a.timestamp - b.timestamp);
+    const { totalMs, aberto } = calcularHoras(lista);
+    const totalStr = formatarDuracao(totalMs);
+
+    html += `<div class="day-block">
+      <div class="day-header">
+        <span class="day-date">📅 ${data}</span>
+        <span class="day-total ${aberto ? 'open' : ''}">${aberto ? '⏳ ' : '⏱️ '}${totalStr}${aberto ? ' (aberto)' : ''}</span>
+      </div>`;
+
+    lista.forEach(r => {
+      const typeClass = r.tipo === 'entrada' ? 'type-entrada' : 'type-saida';
+      const label = r.tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA';
+      const manualTag = r.manual ? ' ✏️' : '';
+      html += `<div class="punch">
+        <div><span class="punch-type ${typeClass}">${label}</span>${r.hora}${manualTag}</div>
+        <div class="punch-actions">
+          <button class="icon-btn" onclick="excluirRegistro('${r.id||''}', ${r.timestamp})" title="Excluir">🗑️</button>
+        </div>
+      </div>`;
     });
 
-    container.innerHTML = `
-      <h2 style="text-align:center;margin-bottom:4px;">Relatório de Ponto Eletrônico</h2>
-      <p style="text-align:center;margin-bottom:16px;">Funcionário: <strong>Rafael Carvalho</strong></p>
-      <p style="text-align:center;font-size:12px;margin-bottom:16px;">Gerado em: ${dataGeracao}</p>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr>
-            <th style="border:1px solid #333;padding:6px;background:#e5e7eb;">Data</th>
-            <th style="border:1px solid #333;padding:6px;background:#e5e7eb;">Hora</th>
-            <th style="border:1px solid #333;padding:6px;background:#e5e7eb;">Dia da Semana</th>
-          </tr>
-        </thead>
-        <tbody>${linhas}</tbody>
-      </table>
-      <p style="text-align:center;font-size:11px;margin-top:20px;color:#555;">Total de registros: ${registros.length}</p>
-    `;
+    html += `</div>`;
+  });
 
-    const opt = {
-      margin: 10,
-      filename: `ponto_rafael_${new Date().toISOString().slice(0, 10)}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(container).save();
-  };
+  container.innerHTML = html;
+}
 
-  // ===== Relógio =====
-  setInterval(() => {
-    document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR');
-  }, 1000);
+function calcularHoras(lista) {
+  let totalMs = 0;
+  let aberto = false;
+  for (let i = 0; i < lista.length; i += 2) {
+    const entrada = lista[i];
+    const saida = lista[i+1];
+    if (entrada && saida && entrada.tipo === 'entrada' && saida.tipo === 'saida') {
+      totalMs += saida.timestamp - entrada.timestamp;
+    } else {
+      aberto = true;
+    }
+  }
+  return { totalMs, aberto };
+}
 
-  // ===== Inicialização =====
-  carregar();
+function formatarDuracao(ms) {
+  if (ms <= 0) return '0h 0min';
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}h ${m}min`;
+}
+
+// ========== PDF ==========
+function exportarPDF() {
+  if (registros.length === 0) { toast('Sem registros para exportar', true); return; }
+  const div = document.createElement('div');
+  div.style.padding = '20px';
+  div.style.color = '#000';
+  div.style.background = '#fff';
+  div.innerHTML = `<h2>Relatório de Ponto - Rafael Carvalho</h2><p>Gerado em ${new Date().toLocaleString('pt-BR')}</p>`;
+
+  const grupos = {};
+  registros.forEach(r => { if (!grupos[r.data]) grupos[r.data]=[]; grupos[r.data].push(r); });
+  const datas = Object.keys(grupos).sort((a,b)=>{
+    const [da,ma,ya]=a.split('/');const [db,mb,yb]=b.split('/');
+    return new Date(ya,ma-1,da)-new Date(yb,mb-1,db);
+  });
+
+  datas.forEach(d => {
+    const lista = grupos[d].slice().sort((a,b)=>a.timestamp-b.timestamp);
+    const { totalMs, aberto } = calcularHoras(lista);
+    div.innerHTML += `<h4>${d} — Total: ${formatarDuracao(totalMs)}${aberto?' (aberto)':''}</h4>`;
+    div.innerHTML += '<ul>' + lista.map(r =>
+      `<li>${r.hora} - ${r.tipo.toUpperCase()}${r.manual?' (manual)':''}</li>`
+    ).join('') + '</ul>';
+  });
+
+  html2pdf().from(div).set({
+    filename: `ponto_rafael_${new Date().toISOString().slice(0,10)}.pdf`,
+    margin: 10,
+    jsPDF: { unit:'mm', format:'a4' }
+  }).save();
+}
+window.exportarPDF = exportarPDF;
 </script>
 </body>
 </html>
