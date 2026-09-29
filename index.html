@@ -8,9 +8,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Motor de OCR (roda 100% no navegador) -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- NOVO: Confete para a celebração da meta -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen flex flex-col items-center p-4 sm:p-8">
 
@@ -21,7 +24,7 @@
             <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
                 <h1 class="text-2xl font-bold text-gray-800 mt-1">Rafael Carvalho</h1>
-                <p class="text-sm text-gray-500">Controle de Ponto Individual (Histórico Completo)</p>
+                <p class="text-sm text-gray-500">Controle de Ponto Individual (Banco de Horas)</p>
             </div>
             <div class="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
                 <div id="live-clock" class="text-3xl font-mono font-bold text-blue-600">00:00:00</div>
@@ -37,11 +40,27 @@
                     <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
                         📆 Dias registrados: <span id="total-dias" class="font-mono font-bold text-indigo-600">0 dias</span>
                     </div>
-                    <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
-                        📊 Total banco: <span id="total-banco" class="font-mono font-bold text-gray-500">00h 00m</span>
+                    <!-- NOVO: pill do banco com mini barra de progresso da meta de Natal -->
+                    <div id="pill-banco" class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block min-w-[170px]">
+                        <div>🎄 Total banco: <span id="total-banco" class="font-mono font-bold text-gray-500">00h 00m</span> <span class="text-gray-400">/ 24h</span></div>
+                        <div class="h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                            <div id="mini-barra-meta" class="h-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- ===================== NOVO: BANNER DA META DE NATAL ===================== -->
+        <div id="banner-meta" class="hidden rounded-xl border p-4">
+            <div class="flex justify-between items-center gap-2">
+                <span id="banner-titulo" class="text-sm font-bold">🎄 Meta Folga de Natal — 24h no banco</span>
+                <span id="banner-pct" class="text-sm font-mono font-bold">0%</span>
+            </div>
+            <div class="h-2.5 bg-white/70 rounded-full mt-2 overflow-hidden">
+                <div id="banner-barra" class="h-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
+            </div>
+            <p id="banner-sub" class="text-[11px] mt-1.5 text-gray-600">Faltam 24h 00m de saldo para garantir a folga 🎅</p>
         </div>
 
         <!-- ===================== NAVEGAÇÃO POR ABAS ===================== -->
@@ -136,7 +155,7 @@
                     </table>
                 </div>
                 <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
-                    <strong>Saldo diário</strong> = horas trabalhadas − 8h (jornada obrigatóária). 🟢 Verde = crédito (excedente) • 🔴 Vermelho = débito (não atingiu 8h) • Dias de hoje sem Saída ficam "⏳ em andamento" e só entram no banco quando a jornada fechar.
+                    <strong>Saldo diário</strong> = horas trabalhadas − 8h (jornada obrigatória). 🟢 Verde = crédito (excedente) • 🔴 Vermelho = débito (não atingiu 8h) • Dias de hoje sem Saída ficam "⏳ em andamento" e só entram no banco quando a jornada fechar. Meta: <strong>24h acumuladas = folga de Natal 🎄</strong>.
                 </p>
             </div>
         </div>
@@ -213,14 +232,48 @@
                     <input type="text" id="import-identificacao" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-600" placeholder="Código longo do comprovante (opcional)">
                 </div>
 
+                <label class="flex items-start gap-2.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg p-3 cursor-pointer">
+                    <input type="checkbox" id="import-salvar-imagem" checked class="mt-0.5 h-4 w-4">
+                    <span>
+                        <strong>🖼️ Salvar imagem do comprovante no Firebase</strong><br>
+                        <span class="text-gray-400">A imagem fica anexada ao registro do dia e pode ser visualizada pelo botão "Ver" no histórico. Se o Storage não estiver ativo, é salva compactada dentro do próprio Firestore (automático).</span>
+                    </span>
+                </label>
+
                 <div id="sugestoes-chips" class="flex flex-wrap items-center gap-1"></div>
 
-                <button onclick="confirmarImportacao()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
+                <button id="btn-confirmar-import" onclick="confirmarImportacao()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
                     💾 Confirmar Importação
                 </button>
             </div>
         </div>
 
+    </div>
+
+    <!-- ===================== MODAL: VISUALIZAR COMPROVANTE ===================== -->
+    <div id="modal-comprovante" class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="if(event.target === this) fecharModalComprovante()">
+        <div class="bg-white rounded-xl p-4 max-w-lg w-full max-h-[90vh] overflow-auto shadow-xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 id="modal-titulo" class="text-sm font-bold text-gray-800">Comprovante</h3>
+                <button onclick="fecharModalComprovante()" class="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">✕</button>
+            </div>
+            <img id="modal-img" class="w-full rounded-lg border border-gray-100" alt="Comprovante de marcação">
+        </div>
+    </div>
+
+    <!-- ===================== NOVO: MODAL DE CELEBRAÇÃO DA META ===================== -->
+    <div id="modal-meta" class="hidden fixed inset-0 z-[60] bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="if(event.target === this) fecharModalMeta()">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl border-4 border-emerald-200">
+            <div class="text-6xl mb-3">🎉🎄</div>
+            <h2 class="text-xl font-extrabold text-gray-800">Parabéns, Rafael!</h2>
+            <p class="text-sm text-gray-600 mt-2 leading-relaxed">
+                Você acumulou <strong id="modal-meta-horas" class="text-emerald-600 font-mono">+24h 00m</strong> no banco de horas e atingiu a meta de 24h.
+                <br><strong class="text-emerald-700">Sua folga de Natal está garantida! 🎁🎅</strong>
+            </p>
+            <button onclick="fecharModalMeta()" class="mt-5 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
+                🎄 Que venha o Natal!
+            </button>
+        </div>
     </div>
 
     <script>
@@ -250,10 +303,8 @@
         }
 
         // =========================================================================
-        // 1.1 DETECÇÃO DE DISPOSITIVO MÓVEL (NOVO)
+        // 1.1 DETECÇÃO DE DISPOSITIVO MÓVEL
         // =========================================================================
-        // Mobile real = user agent de celular/tablet OU (suporte a toque + tela pequena).
-        // A combinação extra cobre iPads modernos, que se identificam como "Mac" no user agent.
         function ehDispositivoMovel() {
             const agenteMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|BlackBerry|webOS|Mobile/i.test(navigator.userAgent);
             const telaPequena = window.matchMedia('(max-width: 640px)').matches;
@@ -279,9 +330,14 @@
         // Jornada obrigatória diária (8h = 480 min) — base do banco de horas
         const JORNADA_DIARIA_MIN = 480;
 
+        // NOVO: Meta de horas acumuladas para a folga de Natal (24h = 1440 min)
+        const META_FOLGA_NATAL_MIN = 24 * 60;
+
         let db;
         let colecaoPontos;
-        let bancoTotalAtual = 0; // usado no PDF
+        let storagePontos = null;
+        let colecaoConfig = null;   // NOVO: coleção auxiliar (flags da meta, fora do histórico)
+        let bancoTotalAtual = 0;    // usado no PDF
 
         try {
             if (typeof firebase === 'undefined') {
@@ -290,6 +346,18 @@
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
             colecaoPontos = db.collection(NOME_COLECAO);
+            // NOVO: coleção separada para não misturar flags com os dias do histórico
+            colecaoConfig = db.collection(NOME_COLECAO + '_config');
+
+            try {
+                if (typeof firebase.storage === 'function') {
+                    storagePontos = firebase.storage();
+                } else {
+                    console.warn("SDK do Storage não carregado — imagens serão salvas no Firestore (fallback).");
+                }
+            } catch (e) {
+                console.warn("Firebase Storage indisponível — imagens serão salvas no Firestore (fallback):", e.message);
+            }
         } catch (error) {
             console.error("Erro ao conectar com Firebase:", error.message);
         }
@@ -360,7 +428,7 @@
             else if (tipo === 'Saída') dadosPonto.saida = hora;
 
             if (justificativa) dadosPonto.justificativa = justificativa;
-            Object.assign(dadosPonto, extras); // ex: identificacao, origem
+            Object.assign(dadosPonto, extras);
 
             return docRef.set(dadosPonto, { merge: true })
                 .then(() => {
@@ -380,6 +448,7 @@
             colecaoPontos.get().then((querySnapshot) => {
                 const tabela = document.getElementById('historico-tabela');
                 tabela.innerHTML = '';
+                indiceComprovantes = {};
 
                 if (querySnapshot.empty) {
                     tabela.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">Nenhum registro encontrado na coleção "${NOME_COLECAO}".</td></tr>`;
@@ -410,16 +479,21 @@
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
                     if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
 
-                    // Dia de HOJE sem Saída = jornada em andamento (não entra no banco ainda)
                     const diaEmAndamento = (dataDocStr === hojeStr && !dia.saida);
                     if (!diaEmAndamento) totalBanco += saldoDia;
 
-                    // Selo visual para pontos importados de comprovante
                     const badgeComp = (dia.origem === 'comprovante')
                         ? `<span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded align-middle" title="${dia.identificacao ? 'ID: ' + dia.identificacao : 'Importado via comprovante'}">Comprovante</span>`
                         : '';
 
-                    // Célula do saldo (verde = crédito | vermelho = débito | cinza = neutro/em andamento)
+                    const temImagem = !!(dia.comprovanteUrl || dia.comprovanteId);
+                    if (temImagem) {
+                        indiceComprovantes[dataDocStr] = { url: dia.comprovanteUrl || null, id: dia.comprovanteId || null };
+                    }
+                    const btnVerImagem = temImagem
+                        ? `<button onclick="verComprovante('${dataDocStr}')" title="Ver imagem do comprovante" class="text-blue-500 hover:text-blue-700 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition mr-1">🖼️ Ver</button>`
+                        : '';
+
                     let celulaSaldo;
                     if (diaEmAndamento) {
                         celulaSaldo = `<td class="p-4 font-mono text-gray-400 text-xs" title="Jornada de hoje ainda aberta — o saldo entra no banco quando a Saída for registrada.">⏳ em andamento</td>`;
@@ -440,7 +514,8 @@
                         <td class="p-4 text-rose-700 font-mono font-semibold">${dia.saida || '-'}</td>
                         <td class="p-4 text-gray-500 italic text-xs max-w-[160px] truncate" title="${dia.justificativa || ''}">${dia.justificativa || '-'}</td>
                         ${celulaSaldo}
-                        <td class="p-4 text-center">
+                        <td class="p-4 text-center whitespace-nowrap">
+                            ${btnVerImagem}
                             <button onclick="deletarRegistroDia('${dataDocStr}')" class="text-rose-500 hover:text-rose-700 font-semibold text-xs bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-md transition">
                                 Remover
                             </button>
@@ -452,7 +527,6 @@
                 // ---- Total Banco (soma de todos os saldos) ----
                 bancoTotalAtual = totalBanco;
                 const elBanco = document.getElementById('total-banco');
-                elBanco.innerText = formatarMinutos(Math.abs(totalBanco));
                 elBanco.classList.remove('text-emerald-600', 'text-rose-600', 'text-gray-500');
                 if (totalBanco > 0) {
                     elBanco.innerText = '+' + formatarMinutos(totalBanco);
@@ -467,6 +541,9 @@
                 document.getElementById('horas-hoje').innerText = formatarMinutos(minutosHoje);
                 document.getElementById('horas-30-dias').innerText = formatarMinutos(minutos30Dias);
                 document.getElementById('total-dias').innerText = `${totalDias} dias`;
+
+                // NOVO: verifica progresso/celebração da meta de Natal
+                verificarMetaNatal(totalBanco);
 
             }).catch((err) => {
                 console.error("Erro Crítico no Firestore:", err);
@@ -492,6 +569,7 @@
             elBanco.classList.remove('text-emerald-600', 'text-rose-600');
             elBanco.classList.add('text-gray-500');
             bancoTotalAtual = 0;
+            atualizarVisualMetaNatal(0, false); // NOVO: reseta o banner da meta
         }
 
         function calcularHorasDia(dia) {
@@ -531,7 +609,8 @@
         }
 
         function deletarRegistroDia(idData) {
-            if (confirm(`Excluir permanentemente o dia ${formatarDataBR(idData)}?`)) {
+            if (confirm(`Excluir permanentemente o dia ${formatarDataBR(idData)}?\nA imagem do comprovante anexada (se houver) também será excluída.`)) {
+                limparComprovante(idData);
                 colecaoPontos.doc(idData).delete().then(() => {
                     carregarHistorico();
                 });
@@ -539,10 +618,138 @@
         }
 
         // =========================================================================
+        // 4.1 NOVO: META DE NATAL — PROGRESSO E CELEBRAÇÃO
+        // =========================================================================
+
+        // Atualiza banner + pill conforme o saldo (chamado sempre que o banco é recalculado)
+        function atualizarVisualMetaNatal(totalBancoMin, metaAtingida) {
+            const banner = document.getElementById('banner-meta');
+            const titulo = document.getElementById('banner-titulo');
+            const pctEl = document.getElementById('banner-pct');
+            const barra = document.getElementById('banner-barra');
+            const sub = document.getElementById('banner-sub');
+            const pill = document.getElementById('pill-banco');
+            const miniBarra = document.getElementById('mini-barra-meta');
+
+            const pct = Math.max(0, Math.min(100, Math.round((totalBancoMin / META_FOLGA_NATAL_MIN) * 100)));
+
+            // Mini barra dentro da pill do Total banco
+            miniBarra.style.width = pct + '%';
+
+            if (metaAtingida) {
+                // Estado festivo
+                banner.classList.remove('hidden', 'border-amber-200', 'bg-amber-50');
+                banner.classList.add('border-emerald-300', 'bg-emerald-50');
+                titulo.innerText = '🎉 Meta atingida — Folga de Natal garantida!';
+                pctEl.innerText = '100%';
+                pctEl.className = 'text-sm font-mono font-bold text-emerald-700';
+                barra.className = 'h-full bg-emerald-500 transition-all duration-500';
+                barra.style.width = '100%';
+                sub.innerText = `Saldo atual: +${formatarMinutos(totalBancoMin)} • Você já pode folgar tranquilamente 🎁🎅`;
+                sub.className = 'text-[11px] mt-1.5 text-emerald-700 font-semibold';
+
+                pill.classList.remove('bg-gray-100');
+                pill.classList.add('bg-emerald-50', 'border', 'border-emerald-300');
+                miniBarra.className = 'h-full bg-emerald-500 transition-all duration-500';
+            } else {
+                // Estado em progresso
+                banner.classList.remove('hidden', 'border-emerald-300', 'bg-emerald-50');
+                banner.classList.add('border-amber-200', 'bg-amber-50');
+                titulo.innerText = '🎄 Meta Folga de Natal — 24h no banco';
+                pctEl.innerText = pct + '%';
+                pctEl.className = 'text-sm font-mono font-bold text-amber-700';
+                barra.className = 'h-full bg-amber-500 transition-all duration-500';
+                barra.style.width = pct + '%';
+
+                const faltam = Math.max(0, META_FOLGA_NATAL_MIN - totalBancoMin);
+                sub.innerText = `Faltam ${formatarMinutos(faltam)} de saldo para garantir a folga 🎅`;
+                sub.className = 'text-[11px] mt-1.5 text-gray-600';
+
+                pill.classList.add('bg-gray-100');
+                pill.classList.remove('bg-emerald-50', 'border-emerald-300');
+                miniBarra.className = 'h-full bg-amber-500 transition-all duration-500';
+            }
+        }
+
+        // Verifica se cruzou a meta e dispara a celebração UMA vez por cruzamento
+        async function verificarMetaNatal(totalBancoMin) {
+            const atingiu = totalBancoMin >= META_FOLGA_NATAL_MIN;
+            atualizarVisualMetaNatal(totalBancoMin, atingiu);
+
+            if (!atingiu) {
+                // Caiu abaixo da meta (ex.: folga usada, correção de registro) →
+                // limpa flags para permitir nova celebração no próximo cruzamento
+                localStorage.removeItem('metaFolgaCelebrada');
+                if (colecaoConfig) {
+                    try {
+                        const doc = await colecaoConfig.doc('metaFolga').get();
+                        if (doc.exists && doc.data().celebrado) {
+                            await colecaoConfig.doc('metaFolga').set({ celebrado: false, banco: 0, quando: Date.now() });
+                        }
+                    } catch (e) { /* silencioso */ }
+                }
+                return;
+            }
+
+            // Já atingiu a meta. Checa se já parabenizamos este cruzamento:
+            // 1) Flag local (mesmo dispositivo)
+            if (localStorage.getItem('metaFolgaCelebrada') === '1') return;
+
+            // 2) Flag remoto (outros dispositivos — salvo no Firestore)
+            if (colecaoConfig) {
+                try {
+                    const doc = await colecaoConfig.doc('metaFolga').get();
+                    if (doc.exists && doc.data().celebrado) {
+                        localStorage.setItem('metaFolgaCelebrada', '1');
+                        return;
+                    }
+                    await colecaoConfig.doc('metaFolga').set({
+                        celebrado: true,
+                        banco: totalBancoMin,
+                        quando: Date.now()
+                    });
+                } catch (e) {
+                    console.warn('Não foi possível salvar o flag da meta no Firestore:', e);
+                    // segue mesmo assim — o flag local evita repetição neste dispositivo
+                }
+            }
+
+            localStorage.setItem('metaFolgaCelebrada', '1');
+            dispararCelebracao(totalBancoMin);
+        }
+
+        function dispararCelebracao(totalBancoMin) {
+            document.getElementById('modal-meta-horas').innerText = '+' + formatarMinutos(totalBancoMin);
+            document.getElementById('modal-meta').classList.remove('hidden');
+            dispararConfete();
+        }
+
+        function fecharModalMeta() {
+            document.getElementById('modal-meta').classList.add('hidden');
+        }
+
+        // Chuva de confete (se a biblioteca carregou; silencioso caso contrário)
+        function dispararConfete() {
+            if (typeof confetti !== 'function') return;
+            try {
+                // Rajada central
+                confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#16a34a', '#f59e0b', '#ef4444', '#ffffff'] });
+                // Canhões laterais por ~2,5s
+                const fim = Date.now() + 2500;
+                (function quadro() {
+                    confetti({ particleCount: 4, angle: 60, spread: 60, origin: { x: 0, y: 0.7 }, colors: ['#16a34a', '#f59e0b', '#ef4444'] });
+                    confetti({ particleCount: 4, angle: 120, spread: 60, origin: { x: 1, y: 0.7 }, colors: ['#16a34a', '#f59e0b', '#ef4444'] });
+                    if (Date.now() < fim) requestAnimationFrame(quadro);
+                })();
+            } catch (e) { /* silencioso */ }
+        }
+
+        // =========================================================================
         // 5. IMPORTAÇÃO DE COMPROVANTE (OCR)
         // =========================================================================
         let imagemAtual = null;
         let ocrWorker = null;
+        let indiceComprovantes = {};
 
         function receberArquivo(files) {
             if (!files || files.length === 0) return;
@@ -580,7 +787,6 @@
             document.getElementById('sugestoes-chips').innerHTML = '';
         }
 
-        // Upload por arrastar e soltar
         const dz = document.getElementById('dropzone');
         dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('border-blue-400', 'bg-blue-50'); });
         dz.addEventListener('dragleave', () => { dz.classList.remove('border-blue-400', 'bg-blue-50'); });
@@ -590,7 +796,6 @@
             receberArquivo(e.dataTransfer.files);
         });
 
-        // Upload por Ctrl+V (quando a aba de importação está aberta)
         document.addEventListener('paste', (e) => {
             if (document.getElementById('aba-importar').classList.contains('hidden')) return;
             const items = e.clipboardData && e.clipboardData.items;
@@ -641,7 +846,6 @@
             return ocrWorker;
         }
 
-        // Reduz a imagem para acelerar o OCR (sem perda prática de precisão)
         function redimensionarImagem(dataURL, maxLado = 1800) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -667,7 +871,7 @@
                 const worker = await obterWorkerOCR();
                 const imgFinal = await redimensionarImagem(imagemAtual);
                 const { data } = await worker.recognize(imgFinal);
-                console.log('=== TEXTO LIDO PELO OCR ===\n' + data.text); // útil para diagnóstico
+                console.log('=== TEXTO LIDO PELO OCR ===\n' + data.text);
 
                 const extraidos = extrairDadosComprovante(data.text);
                 await preencherFormularioImportacao(extraidos);
@@ -679,6 +883,105 @@
             } finally {
                 btn.disabled = false;
             }
+        }
+
+        // =========================================================================
+        // 5.1 ARMAZENAMENTO DA IMAGEM DO COMPROVANTE
+        // =========================================================================
+
+        function comprimirImagem(dataURL, maxLado = 1000, qualidade = 0.75) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * escala);
+                    canvas.height = Math.round(img.height * escala);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', qualidade));
+                };
+                img.onerror = () => resolve(dataURL);
+                img.src = dataURL;
+            });
+        }
+
+        async function enviarImagemComprovante(dataStr) {
+            if (!imagemAtual) return { ok: false, motivo: 'Nenhuma imagem carregada.' };
+
+            let dataURL = await comprimirImagem(imagemAtual, 1000, 0.75);
+
+            if (storagePontos) {
+                try {
+                    const caminho = `comprovantes/${dataStr}/${Date.now()}.jpg`;
+                    const ref = storagePontos.ref().child(caminho);
+                    const snapshot = await ref.putString(dataURL, 'data_url');
+                    const url = await snapshot.ref.getDownloadURL();
+                    return { ok: true, storage: true, url: url, path: caminho };
+                } catch (e) {
+                    console.warn('Storage indisponível — ativando fallback no Firestore:', e);
+                }
+            }
+
+            if (dataURL.length > 900000) {
+                dataURL = await comprimirImagem(imagemAtual, 700, 0.55);
+            }
+            if (dataURL.length > 950000) {
+                return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
+            }
+            return { ok: true, storage: false, base64: dataURL };
+        }
+
+        async function salvarImagemFirestore(dataStr, base64, identificacao) {
+            const docComp = await colecaoPontos.doc(dataStr).collection('comprovantes').add({
+                base64: base64,
+                identificacao: identificacao || null,
+                criadoEm: Date.now()
+            });
+            return docComp.id;
+        }
+
+        async function limparComprovante(idData) {
+            try {
+                const docDia = await colecaoPontos.doc(idData).get();
+                if (docDia.exists && docDia.data().comprovantePath && storagePontos) {
+                    await storagePontos.ref().child(docDia.data().comprovantePath).delete();
+                }
+                const comps = await colecaoPontos.doc(idData).collection('comprovantes').get();
+                if (!comps.empty) {
+                    const batch = db.batch();
+                    comps.forEach(c => batch.delete(c.ref));
+                    await batch.commit();
+                }
+            } catch (e) {
+                console.warn('Não foi possível limpar a imagem do comprovante:', e);
+            }
+        }
+
+        async function verComprovante(dataStr) {
+            const info = indiceComprovantes[dataStr];
+            if (!info) return;
+
+            let url = info.url;
+            if (!url && info.id) {
+                try {
+                    const doc = await colecaoPontos.doc(dataStr).collection('comprovantes').doc(info.id).get();
+                    url = doc.exists ? doc.data().base64 : null;
+                } catch (e) {
+                    console.error('Erro ao buscar comprovante:', e);
+                }
+            }
+            if (!url) {
+                alert('A imagem do comprovante não foi encontrada.');
+                return;
+            }
+            document.getElementById('modal-titulo').innerText = 'Comprovante — ' + formatarDataBR(dataStr);
+            document.getElementById('modal-img').src = url;
+            document.getElementById('modal-comprovante').classList.remove('hidden');
+        }
+
+        function fecharModalComprovante() {
+            document.getElementById('modal-comprovante').classList.add('hidden');
+            document.getElementById('modal-img').src = '';
         }
 
         function extrairDadosComprovante(texto) {
@@ -693,14 +996,12 @@
             const regexDataGeral = /\d{2}[\/\-.]\d{2}[\/\-.]\d{4}/g;
             const regexHora = /(\d{1,2})[:h](\d{2})/;
             const regexHoraGeral = /\d{1,2}[:h]\d{2}/g;
-            // Linha de período "20/09/2026 - 26/09/2026" deve ser ignorada
             const ehPeriodo = (l) => /\d{2}[\/\-.]\d{2}[\/\-.]\d{4}\s*(-|—|a|at[eé])\s*\d{2}[\/\-.]\d{2}[\/\-.]\d{4}/i.test(l);
 
             const acharLinha = (regex) => linhas.findIndex(l => regex.test(l));
             const paraISO = (m) => `${m[3]}-${m[2]}-${m[1]}`;
             const paraHora = (m) => `${String(Math.min(23, parseInt(m[1], 10))).padStart(2, '0')}:${String(Math.min(59, parseInt(m[2], 10))).padStart(2, '0')}`;
 
-            // ---- DATA (prioriza a que vem após o rótulo "Data") ----
             const idxData = acharLinha(/^data\b/i);
             if (idxData >= 0) {
                 for (let i = idxData; i <= Math.min(idxData + 2, linhas.length - 1); i++) {
@@ -721,7 +1022,6 @@
                 (l.match(regexDataGeral) || []).forEach(s => res.datasAlt.push(paraISO(s.match(regexData))));
             });
 
-            // ---- HORÁRIO (prioriza o que vem após o rótulo "Horário") ----
             const idxHora = acharLinha(/hor[aá]ri/i);
             if (idxHora >= 0) {
                 for (let i = idxHora; i <= Math.min(idxHora + 2, linhas.length - 1); i++) {
@@ -739,10 +1039,8 @@
                 (l.match(regexHoraGeral) || []).forEach(s => res.horasAlt.push(paraHora(s.match(regexHora))));
             });
 
-            // ---- IDENTIFICAÇÃO DA MARCAÇÃO ----
             res.identificacao = extrairIdentificacao(linhas);
 
-            // ---- CAMPOS INFORMATIVOS (só para conferência visual) ----
             const depoisDe = (rotulo, proibidos) => {
                 const i = acharLinha(rotulo);
                 if (i < 0 || i + 1 >= linhas.length) return null;
@@ -759,7 +1057,6 @@
             const mFuso = texto.match(/GMT\s*[+-]?\d{1,2}:\d{2}/i);
             res.fuso = mFuso ? mFuso[0] : null;
 
-            // Remove duplicatas e a opção já escolhida
             res.datasAlt = [...new Set(res.datasAlt)].filter(x => x && x !== res.data).slice(0, 6);
             res.horasAlt = [...new Set(res.horasAlt)].filter(x => x && x !== res.hora).slice(0, 6);
 
@@ -767,7 +1064,6 @@
         }
 
         function extrairIdentificacao(linhas) {
-            // 1) Caminho preferencial: linhas após o rótulo "Identificação..."
             const idx = linhas.findIndex(l => /identifica/i.test(l));
             if (idx >= 0) {
                 const partes = [];
@@ -783,7 +1079,6 @@
                 const id = partes.join('');
                 if (id.length >= 20) return id;
             }
-            // 2) Fallback: maior bloco denso de caracteres base64 no texto
             let melhor = '', atual = '';
             for (const l of linhas) {
                 const limpa = l.replace(/[^A-Za-z0-9+/=]/g, '');
@@ -798,7 +1093,6 @@
             return melhor.length >= 30 ? melhor : null;
         }
 
-        // Sugere o próximo tipo de ponto faltante do dia (Entrada → Almoço → Saída)
         async function sugerirTipoPonto(dataStr) {
             if (!colecaoPontos) return 'Entrada';
             try {
@@ -809,7 +1103,7 @@
                 if (!d.almocoSaida) return 'Almoço Saída';
                 if (!d.almocoRetorno) return 'Almoço Retorno';
                 if (!d.saida) return 'Saída';
-                return null; // dia completo
+                return null;
             } catch (e) {
                 return 'Entrada';
             }
@@ -888,11 +1182,14 @@
                 return;
             }
 
+            const btn = document.getElementById('btn-confirmar-import');
+            const textoOriginal = btn.innerText;
             const dataStr = document.getElementById('import-data').value;
             const horaStr = document.getElementById('import-hora').value;
             const tipo = document.getElementById('import-tipo').value;
             const justificativa = document.getElementById('import-justificativa').value.trim() || 'Importado via comprovante';
             const identificacao = document.getElementById('import-identificacao').value.trim();
+            const salvarImagem = document.getElementById('import-salvar-imagem').checked;
 
             if (!dataStr || !horaStr) {
                 alert('Data e horário são obrigatórios. Preencha/corrija os campos antes de confirmar.');
@@ -926,15 +1223,40 @@
                     }
                 }
 
-                await salvarNoFirebase(dataStr, horaStr, tipo, justificativa, {
-                    identificacao: identificacao,
-                    origem: 'comprovante'
-                });
+                let extras = { identificacao: identificacao, origem: 'comprovante' };
+
+                if (salvarImagem && imagemAtual) {
+                    btn.disabled = true;
+                    btn.innerText = '⏳ Salvando comprovante...';
+                    const resultado = await enviarImagemComprovante(dataStr);
+                    btn.disabled = false;
+                    btn.innerText = textoOriginal;
+
+                    if (resultado.ok && resultado.storage) {
+                        extras.comprovanteUrl = resultado.url;
+                        extras.comprovantePath = resultado.path;
+                    } else if (resultado.ok) {
+                        try {
+                            extras.comprovanteId = await salvarImagemFirestore(dataStr, resultado.base64, identificacao);
+                        } catch (e) {
+                            console.error('Erro ao salvar imagem no Firestore:', e);
+                            const ok = confirm('A imagem não pôde ser salva no banco.\nDeseja registrar o ponto mesmo assim (sem imagem)?');
+                            if (!ok) return;
+                        }
+                    } else {
+                        const ok = confirm('Não foi possível salvar a imagem (' + resultado.motivo + ').\nDeseja registrar o ponto mesmo assim (sem imagem)?');
+                        if (!ok) return;
+                    }
+                }
+
+                await salvarNoFirebase(dataStr, horaStr, tipo, justificativa, extras);
 
                 limparImportacao();
 
             } catch (err) {
                 console.error('Erro na importação:', err);
+                btn.disabled = false;
+                btn.innerText = textoOriginal;
             }
         }
 
@@ -958,10 +1280,13 @@
             const agora = new Date();
             const dataEmissao = agora.toLocaleDateString('pt-BR');
 
-            // Cor do Total Banco no PDF
             let corBanco = '#111';
             if (bancoTotalAtual > 0) corBanco = '#047857';
             else if (bancoTotalAtual < 0) corBanco = '#b91c1c';
+
+            // NOVO: status da meta para o PDF
+            const metaAtingidaPDF = bancoTotalAtual >= META_FOLGA_NATAL_MIN;
+            const faltamPDF = Math.max(0, META_FOLGA_NATAL_MIN - bancoTotalAtual);
 
             let conteudoHTML = `
                 <div style="border-bottom: 1px solid #111; padding-bottom: 12px; margin-bottom: 24px;">
@@ -1019,6 +1344,14 @@
                         <span style="font-weight: bold; color: ${corBanco}; margin-left: 8px;">${bancoTotalAtual > 0 ? '+' : (bancoTotalAtual < 0 ? '-' : '')}${formatarMinutos(Math.abs(bancoTotalAtual))}</span>
                     </div>
                 </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+                    <div style="border: 1px solid ${metaAtingidaPDF ? '#047857' : '#d97706'}; background-color: ${metaAtingidaPDF ? '#ecfdf5' : '#fffbeb'}; padding: 8px 14px; font-size: 12px; color: #111;">
+                        ${metaAtingidaPDF
+                            ? '🎄 <strong>Meta de Natal atingida (24h) — folga garantida!</strong>'
+                            : `🎅 <strong>Meta Folga de Natal (24h):</strong> faltam ${formatarMinutos(faltamPDF)}`}
+                    </div>
+                </div>
                 <p style="font-size: 9px; color: #666; margin-top: 6px; text-align: right;">Jornada obrigatória: 8h/dia • Saldo diário = horas trabalhadas − 8h</p>
 
                 <div style="margin-top: 60px; width: 240px; text-align: center; border-top: 1px solid #111; padding-top: 6px; font-size: 11px; color: #222;">
@@ -1043,8 +1376,6 @@
             if (colecaoPontos) {
                 carregarHistorico();
             }
-            // NOVO: no mobile, a tela inicial é a aba de importação (fluxo principal:
-            // tirar print no app Senior → importar aqui). No desktop, abre em "Bater Ponto".
             mostrarAba(ehDispositivoMovel() ? 'importar' : 'ponto');
         };
     </script>
