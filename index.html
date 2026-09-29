@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Motor de OCR (roda 100% no navegador) -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <!-- NOVO: Confete para a celebração da meta -->
+    <!-- Confete para a celebração da meta -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -40,8 +40,8 @@
                     <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
                         📆 Dias registrados: <span id="total-dias" class="font-mono font-bold text-indigo-600">0 dias</span>
                     </div>
-                    <!-- NOVO: pill do banco com mini barra de progresso da meta de Natal -->
-                    <div id="pill-banco" class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block min-w-[170px]">
+                    <!-- Pill do banco com mini barra de progresso da meta (período 01/10 a 11/12) -->
+                    <div id="pill-banco" title="Soma dos saldos entre 01/10/2026 e 11/12/2026 (período válido do banco de horas)" class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block min-w-[170px]">
                         <div>🎄 Total banco: <span id="total-banco" class="font-mono font-bold text-gray-500">00h 00m</span> <span class="text-gray-400">/ 24h</span></div>
                         <div class="h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
                             <div id="mini-barra-meta" class="h-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
@@ -51,16 +51,16 @@
             </div>
         </div>
 
-        <!-- ===================== NOVO: BANNER DA META DE NATAL ===================== -->
+        <!-- ===================== BANNER DA META DE NATAL ===================== -->
         <div id="banner-meta" class="hidden rounded-xl border p-4">
             <div class="flex justify-between items-center gap-2">
-                <span id="banner-titulo" class="text-sm font-bold">🎄 Meta Folga de Natal — 24h no banco</span>
+                <span id="banner-titulo" class="text-sm font-bold">🎄 Meta Folga de Natal — 24h até 11/12/2026</span>
                 <span id="banner-pct" class="text-sm font-mono font-bold">0%</span>
             </div>
             <div class="h-2.5 bg-white/70 rounded-full mt-2 overflow-hidden">
                 <div id="banner-barra" class="h-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
             </div>
-            <p id="banner-sub" class="text-[11px] mt-1.5 text-gray-600">Faltam 24h 00m de saldo para garantir a folga 🎅</p>
+            <p id="banner-sub" class="text-[11px] mt-1.5 text-gray-600 leading-relaxed">Carregando meta...</p>
         </div>
 
         <!-- ===================== NAVEGAÇÃO POR ABAS ===================== -->
@@ -155,7 +155,8 @@
                     </table>
                 </div>
                 <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
-                    <strong>Saldo diário</strong> = horas trabalhadas − 8h (jornada obrigatória). 🟢 Verde = crédito (excedente) • 🔴 Vermelho = débito (não atingiu 8h) • Dias de hoje sem Saída ficam "⏳ em andamento" e só entram no banco quando a jornada fechar. Meta: <strong>24h acumuladas = folga de Natal 🎄</strong>.
+                    <strong>Saldo diário</strong> = horas trabalhadas − 8h (jornada obrigatóária). 🟢 Verde = crédito • 🔴 Vermelho = débito • Dias de hoje sem Saída ficam "⏳ em andamento" e só entram no banco quando a jornada fechar.
+                    O banco vale <strong>somente entre 01/10/2026 e 11/12/2026</strong> — dias fora desse período são marcados como "fora do banco" e <strong>não computam</strong> para a meta de 24h 🎄.
                 </p>
             </div>
         </div>
@@ -261,13 +262,14 @@
         </div>
     </div>
 
-    <!-- ===================== NOVO: MODAL DE CELEBRAÇÃO DA META ===================== -->
+    <!-- ===================== MODAL DE CELEBRAÇÃO DA META ===================== -->
     <div id="modal-meta" class="hidden fixed inset-0 z-[60] bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="if(event.target === this) fecharModalMeta()">
         <div class="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl border-4 border-emerald-200">
             <div class="text-6xl mb-3">🎉🎄</div>
             <h2 class="text-xl font-extrabold text-gray-800">Parabéns, Rafael!</h2>
             <p class="text-sm text-gray-600 mt-2 leading-relaxed">
-                Você acumulou <strong id="modal-meta-horas" class="text-emerald-600 font-mono">+24h 00m</strong> no banco de horas e atingiu a meta de 24h.
+                Você acumulou <strong id="modal-meta-horas" class="text-emerald-600 font-mono">+24h 00m</strong> no banco de horas
+                (01/10 a 11/12/2026) e atingiu a meta de 24h.
                 <br><strong class="text-emerald-700">Sua folga de Natal está garantida! 🎁🎅</strong>
             </p>
             <button onclick="fecharModalMeta()" class="mt-5 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
@@ -330,14 +332,19 @@
         // Jornada obrigatória diária (8h = 480 min) — base do banco de horas
         const JORNADA_DIARIA_MIN = 480;
 
-        // NOVO: Meta de horas acumuladas para a folga de Natal (24h = 1440 min)
+        // Meta de horas acumuladas para a folga de Natal (24h = 1440 min)
         const META_FOLGA_NATAL_MIN = 24 * 60;
+
+        // NOVO: Janela válida do banco de horas (inclusiva) — só dias nesse intervalo contam
+        const BANCO_INICIO = '2026-10-01'; // 01/10/2026
+        const BANCO_FIM    = '2026-12-11'; // 11/12/2026
 
         let db;
         let colecaoPontos;
         let storagePontos = null;
-        let colecaoConfig = null;   // NOVO: coleção auxiliar (flags da meta, fora do histórico)
-        let bancoTotalAtual = 0;    // usado no PDF
+        let colecaoConfig = null;
+        let bancoTotalAtual = 0;      // Total banco (já filtrado pelo período) — usado no PDF
+        let ritmoAtualMinDia = null;  // NOVO: média de saldo/dia útil no período — usado no PDF
 
         try {
             if (typeof firebase === 'undefined') {
@@ -346,7 +353,6 @@
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
             colecaoPontos = db.collection(NOME_COLECAO);
-            // NOVO: coleção separada para não misturar flags com os dias do histórico
             colecaoConfig = db.collection(NOME_COLECAO + '_config');
 
             try {
@@ -360,6 +366,51 @@
             }
         } catch (error) {
             console.error("Erro ao conectar com Firebase:", error.message);
+        }
+
+        // =========================================================================
+        // 2.1 NOVO: FUNÇÕES DA JANELA DO BANCO E DA PREVISÃO
+        // =========================================================================
+
+        // Compara strings ISO (AAAA-MM-DD) — funciona lexicograficamente
+        function dentroPeriodoBanco(dataStr) {
+            return !!dataStr && dataStr >= BANCO_INICIO && dataStr <= BANCO_FIM;
+        }
+
+        // Conta dias úteis (seg–sex) entre duas datas ISO, inclusivas
+        function contarDiasUteis(inicioStr, fimStr) {
+            const fim = new Date(fimStr + 'T00:00:00');
+            const d = new Date(inicioStr + 'T00:00:00');
+            let dias = 0;
+            while (d <= fim) {
+                const dow = d.getDay();
+                if (dow !== 0 && dow !== 6) dias++;
+                d.setDate(d.getDate() + 1);
+            }
+            return dias;
+        }
+
+        // Avança N dias úteis a partir de uma data ISO e retorna a data resultante
+        function adicionarDiasUteis(dataStr, nDias) {
+            const d = new Date(dataStr + 'T00:00:00');
+            let contados = 0;
+            while (contados < nDias) {
+                d.setDate(d.getDate() + 1);
+                if (d.getDay() !== 0 && d.getDay() !== 6) contados++;
+            }
+            return obterDataLocalISO(d);
+        }
+
+        // Cálculo central da meta: falta, dias úteis restantes e média necessária/dia
+        function calcularInfoMeta(totalBancoMin) {
+            const falta = Math.max(0, META_FOLGA_NATAL_MIN - totalBancoMin);
+            const hojeStr = obterDataLocalISO();
+            const expirado = hojeStr > BANCO_FIM;
+            const antesPeriodo = hojeStr < BANCO_INICIO;
+            const refStr = antesPeriodo ? BANCO_INICIO : hojeStr; // de onde começa a contar
+            const diasUteis = expirado ? 0 : contarDiasUteis(refStr, BANCO_FIM);
+            const mediaNecessaria = (falta > 0 && diasUteis > 0) ? Math.ceil(falta / diasUteis) : 0;
+            return { falta, expirado, antesPeriodo, refStr, diasUteis, mediaNecessaria };
         }
 
         // =========================================================================
@@ -393,6 +444,10 @@
             const agora = new Date();
             const dataStr = obterDataLocalISO(agora);
             const horaStr = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            if (!dentroPeriodoBanco(dataStr)) {
+                alert(`⚠️ Aviso: o banco de horas só vale entre ${formatarDataBR(BANCO_INICIO)} e ${formatarDataBR(BANCO_FIM)}.\nO ponto será registrado no histórico, mas NÃO contará para a meta de Natal.`);
+            }
 
             salvarNoFirebase(dataStr, horaStr, tipo, '');
         }
@@ -460,6 +515,8 @@
                 let minutos30Dias = 0;
                 let totalDias = querySnapshot.size;
                 let totalBanco = 0;
+                let somaSaldosCompletos = 0;  // NOVO: para calcular o ritmo atual
+                let diasCompletosPeriodo = 0; // NOVO: dias do período com Entrada+Saída
 
                 const hojeStr = obterDataLocalISO();
                 const limite30Dias = new Date();
@@ -479,11 +536,24 @@
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
                     if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
 
+                    // NOVO: só dias DENTRO da janela 01/10–11/12 alimentam o banco/meta
+                    const noPeriodo = dentroPeriodoBanco(dataDocStr);
                     const diaEmAndamento = (dataDocStr === hojeStr && !dia.saida);
-                    if (!diaEmAndamento) totalBanco += saldoDia;
+                    if (noPeriodo && !diaEmAndamento) {
+                        totalBanco += saldoDia;
+                        if (dia.entrada && dia.saida) {
+                            somaSaldosCompletos += saldoDia;
+                            diasCompletosPeriodo++;
+                        }
+                    }
 
                     const badgeComp = (dia.origem === 'comprovante')
                         ? `<span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded align-middle" title="${dia.identificacao ? 'ID: ' + dia.identificacao : 'Importado via comprovante'}">Comprovante</span>`
+                        : '';
+
+                    // NOVO: marcador visual para dias fora da janela do banco
+                    const badgeFora = !noPeriodo
+                        ? `<span class="ml-2 text-[10px] font-semibold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded align-middle" title="Fora do período válido do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}) — não computa para a meta de Natal">fora do banco</span>`
                         : '';
 
                     const temImagem = !!(dia.comprovanteUrl || dia.comprovanteId);
@@ -494,21 +564,24 @@
                         ? `<button onclick="verComprovante('${dataDocStr}')" title="Ver imagem do comprovante" class="text-blue-500 hover:text-blue-700 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition mr-1">🖼️ Ver</button>`
                         : '';
 
+                    const notaFora = noPeriodo ? '' : ' • FORA DO PERÍODO DO BANCO (não computa p/ meta)';
+                    const opacFora = noPeriodo ? '' : ' opacity-50';
+
                     let celulaSaldo;
                     if (diaEmAndamento) {
-                        celulaSaldo = `<td class="p-4 font-mono text-gray-400 text-xs" title="Jornada de hoje ainda aberta — o saldo entra no banco quando a Saída for registrada.">⏳ em andamento</td>`;
+                        celulaSaldo = `<td class="p-4 font-mono text-gray-400 text-xs" title="Jornada de hoje ainda aberta — o saldo entra no banco quando a Saída for registrada.${notaFora}">⏳ em andamento</td>`;
                     } else if (saldoDia > 0) {
-                        celulaSaldo = `<td class="p-4 font-bold text-emerald-600 font-mono" title="Trabalhado: ${formatarMinutos(minutosTrabalhados)} • Obrigatório: 8h • Crédito no banco">+${formatarMinutos(saldoDia)}</td>`;
+                        celulaSaldo = `<td class="p-4 font-bold text-emerald-600 font-mono${opacFora}" title="Trabalhado: ${formatarMinutos(minutosTrabalhados)} • Obrigatório: 8h • Crédito no banco${notaFora}">+${formatarMinutos(saldoDia)}</td>`;
                     } else if (saldoDia < 0) {
-                        celulaSaldo = `<td class="p-4 font-bold text-rose-600 font-mono" title="Trabalhado: ${formatarMinutos(minutosTrabalhados)} • Obrigatório: 8h • Débito no banco">-${formatarMinutos(Math.abs(saldoDia))}</td>`;
+                        celulaSaldo = `<td class="p-4 font-bold text-rose-600 font-mono${opacFora}" title="Trabalhado: ${formatarMinutos(minutosTrabalhados)} • Obrigatório: 8h • Débito no banco${notaFora}">-${formatarMinutos(Math.abs(saldoDia))}</td>`;
                     } else {
-                        celulaSaldo = `<td class="p-4 font-bold text-gray-400 font-mono" title="Exatamente 8h — saldo neutro">00h 00m</td>`;
+                        celulaSaldo = `<td class="p-4 font-bold text-gray-400 font-mono${opacFora}" title="Exatamente 8h — saldo neutro${notaFora}">00h 00m</td>`;
                     }
 
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-gray-50 transition";
                     tr.innerHTML = `
-                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(dataDocStr)}${badgeComp}</td>
+                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(dataDocStr)}${badgeComp}${badgeFora}</td>
                         <td class="p-4 text-emerald-700 font-mono font-semibold">${dia.entrada || '-'}</td>
                         <td class="p-4 text-amber-700 font-mono">${dia.almocoSaida || '-'} ➔ ${dia.almocoRetorno || '-'}</td>
                         <td class="p-4 text-rose-700 font-mono font-semibold">${dia.saida || '-'}</td>
@@ -524,7 +597,7 @@
                     tabela.appendChild(tr);
                 });
 
-                // ---- Total Banco (soma de todos os saldos) ----
+                // ---- Total Banco (soma dos saldos SÓ do período 01/10–11/12) ----
                 bancoTotalAtual = totalBanco;
                 const elBanco = document.getElementById('total-banco');
                 elBanco.classList.remove('text-emerald-600', 'text-rose-600', 'text-gray-500');
@@ -542,8 +615,11 @@
                 document.getElementById('horas-30-dias').innerText = formatarMinutos(minutos30Dias);
                 document.getElementById('total-dias').innerText = `${totalDias} dias`;
 
-                // NOVO: verifica progresso/celebração da meta de Natal
-                verificarMetaNatal(totalBanco);
+                // NOVO: ritmo atual = média de saldo dos dias completos do período
+                const ritmo = diasCompletosPeriodo > 0 ? (somaSaldosCompletos / diasCompletosPeriodo) : null;
+
+                // Verifica progresso/celebração da meta (agora com dados de previsão)
+                verificarMetaNatal(totalBanco, ritmo);
 
             }).catch((err) => {
                 console.error("Erro Crítico no Firestore:", err);
@@ -569,7 +645,8 @@
             elBanco.classList.remove('text-emerald-600', 'text-rose-600');
             elBanco.classList.add('text-gray-500');
             bancoTotalAtual = 0;
-            atualizarVisualMetaNatal(0, false); // NOVO: reseta o banner da meta
+            ritmoAtualMinDia = null;
+            atualizarVisualMetaNatal(0, false, null);
         }
 
         function calcularHorasDia(dia) {
@@ -608,6 +685,12 @@
             return `${dia}/${mes}/${ano}`;
         }
 
+        function formatarMinutosComSinal(totalMinutos) {
+            if (totalMinutos > 0) return '+' + formatarMinutos(totalMinutos);
+            if (totalMinutos < 0) return '-' + formatarMinutos(Math.abs(totalMinutos));
+            return '00h 00m';
+        }
+
         function deletarRegistroDia(idData) {
             if (confirm(`Excluir permanentemente o dia ${formatarDataBR(idData)}?\nA imagem do comprovante anexada (se houver) também será excluída.`)) {
                 limparComprovante(idData);
@@ -618,11 +701,11 @@
         }
 
         // =========================================================================
-        // 4.1 NOVO: META DE NATAL — PROGRESSO E CELEBRAÇÃO
+        // 4.1 META DE NATAL — PROGRESSO, MÉDIA NECESSÁRIA E CELEBRAÇÃO
         // =========================================================================
 
-        // Atualiza banner + pill conforme o saldo (chamado sempre que o banco é recalculado)
-        function atualizarVisualMetaNatal(totalBancoMin, metaAtingida) {
+        // Atualiza banner + pill (agora com média necessária e previsão por ritmo)
+        function atualizarVisualMetaNatal(totalBancoMin, metaAtingida, ritmoMinDia = null) {
             const banner = document.getElementById('banner-meta');
             const titulo = document.getElementById('banner-titulo');
             const pctEl = document.getElementById('banner-pct');
@@ -632,12 +715,46 @@
             const miniBarra = document.getElementById('mini-barra-meta');
 
             const pct = Math.max(0, Math.min(100, Math.round((totalBancoMin / META_FOLGA_NATAL_MIN) * 100)));
-
-            // Mini barra dentro da pill do Total banco
             miniBarra.style.width = pct + '%';
 
+            const info = calcularInfoMeta(totalBancoMin);
+            let linhasSub = [];
+
+            if (info.expirado) {
+                linhasSub.push(`⌛ O período do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}) foi encerrado.`);
+                if (!metaAtingida) linhasSub.push('❌ Meta de 24h não atingida dentro do prazo.');
+            } else if (metaAtingida) {
+                linhasSub.push(`Saldo no período: <strong>${formatarMinutosComSinal(totalBancoMin)}</strong> • Meta 24h atingida 🎁🎅`);
+            } else {
+                linhasSub.push(`Faltam <strong>${formatarMinutos(info.falta)}</strong> de saldo para a folga 🎅 (saldo atual no período: ${formatarMinutosComSinal(totalBancoMin)})`);
+
+                if (info.diasUteis > 0 && info.mediaNecessaria > 0) {
+                    const contextoPeriodo = info.antesPeriodo
+                        ? ` — banco abre em ${formatarDataBR(BANCO_INICIO)}`
+                        : '';
+                    linhasSub.push(`🎯 Média necessária: <strong>+${formatarMinutos(info.mediaNecessaria)}/dia útil</strong> (${info.diasUteis} dias úteis até ${formatarDataBR(BANCO_FIM)}${contextoPeriodo})`);
+
+                    // Previsão baseada no ritmo atual (média dos dias completos do período)
+                    if (ritmoMinDia !== null) {
+                        if (ritmoMinDia > 0) {
+                            const diasParaMeta = Math.ceil(info.falta / ritmoMinDia);
+                            const refEhUtil = (new Date(info.refStr + 'T00:00:00')).getDay() % 6 !== 0;
+                            const previsaoStr = adicionarDiasUteis(info.refStr, Math.max(0, diasParaMeta - (refEhUtil ? 1 : 0)));
+                            if (previsaoStr > BANCO_FIM) {
+                                linhasSub.push(`⚠️ Ritmo atual: +${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — nesse ritmo a meta ficaria para depois de ${formatarDataBR(BANCO_FIM)}. Precisa acelerar!`);
+                            } else {
+                                linhasSub.push(`📈 Ritmo atual: +${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — previsão de conclusão: <strong>${formatarDataBR(previsaoStr)}</strong> ✅`);
+                            }
+                        } else {
+                            linhasSub.push(`⚠️ Ritmo atual: ${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — é preciso reverter o saldo para bater a meta.`);
+                        }
+                    }
+                } else if (info.diasUteis === 0) {
+                    linhasSub.push('⚠️ Não há mais dias úteis no período.');
+                }
+            }
+
             if (metaAtingida) {
-                // Estado festivo
                 banner.classList.remove('hidden', 'border-amber-200', 'bg-amber-50');
                 banner.classList.add('border-emerald-300', 'bg-emerald-50');
                 titulo.innerText = '🎉 Meta atingida — Folga de Natal garantida!';
@@ -645,40 +762,34 @@
                 pctEl.className = 'text-sm font-mono font-bold text-emerald-700';
                 barra.className = 'h-full bg-emerald-500 transition-all duration-500';
                 barra.style.width = '100%';
-                sub.innerText = `Saldo atual: +${formatarMinutos(totalBancoMin)} • Você já pode folgar tranquilamente 🎁🎅`;
-                sub.className = 'text-[11px] mt-1.5 text-emerald-700 font-semibold';
 
                 pill.classList.remove('bg-gray-100');
                 pill.classList.add('bg-emerald-50', 'border', 'border-emerald-300');
                 miniBarra.className = 'h-full bg-emerald-500 transition-all duration-500';
             } else {
-                // Estado em progresso
                 banner.classList.remove('hidden', 'border-emerald-300', 'bg-emerald-50');
                 banner.classList.add('border-amber-200', 'bg-amber-50');
-                titulo.innerText = '🎄 Meta Folga de Natal — 24h no banco';
+                titulo.innerText = `🎄 Meta Folga de Natal — 24h até ${formatarDataBR(BANCO_FIM)}`;
                 pctEl.innerText = pct + '%';
                 pctEl.className = 'text-sm font-mono font-bold text-amber-700';
                 barra.className = 'h-full bg-amber-500 transition-all duration-500';
                 barra.style.width = pct + '%';
 
-                const faltam = Math.max(0, META_FOLGA_NATAL_MIN - totalBancoMin);
-                sub.innerText = `Faltam ${formatarMinutos(faltam)} de saldo para garantir a folga 🎅`;
-                sub.className = 'text-[11px] mt-1.5 text-gray-600';
-
                 pill.classList.add('bg-gray-100');
                 pill.classList.remove('bg-emerald-50', 'border-emerald-300');
                 miniBarra.className = 'h-full bg-amber-500 transition-all duration-500';
             }
+
+            sub.innerHTML = linhasSub.join('<br>');
         }
 
         // Verifica se cruzou a meta e dispara a celebração UMA vez por cruzamento
-        async function verificarMetaNatal(totalBancoMin) {
+        async function verificarMetaNatal(totalBancoMin, ritmoMinDia = null) {
+            ritmoAtualMinDia = ritmoMinDia;
             const atingiu = totalBancoMin >= META_FOLGA_NATAL_MIN;
-            atualizarVisualMetaNatal(totalBancoMin, atingiu);
+            atualizarVisualMetaNatal(totalBancoMin, atingiu, ritmoMinDia);
 
             if (!atingiu) {
-                // Caiu abaixo da meta (ex.: folga usada, correção de registro) →
-                // limpa flags para permitir nova celebração no próximo cruzamento
                 localStorage.removeItem('metaFolgaCelebrada');
                 if (colecaoConfig) {
                     try {
@@ -691,11 +802,8 @@
                 return;
             }
 
-            // Já atingiu a meta. Checa se já parabenizamos este cruzamento:
-            // 1) Flag local (mesmo dispositivo)
             if (localStorage.getItem('metaFolgaCelebrada') === '1') return;
 
-            // 2) Flag remoto (outros dispositivos — salvo no Firestore)
             if (colecaoConfig) {
                 try {
                     const doc = await colecaoConfig.doc('metaFolga').get();
@@ -710,7 +818,6 @@
                     });
                 } catch (e) {
                     console.warn('Não foi possível salvar o flag da meta no Firestore:', e);
-                    // segue mesmo assim — o flag local evita repetição neste dispositivo
                 }
             }
 
@@ -719,7 +826,7 @@
         }
 
         function dispararCelebracao(totalBancoMin) {
-            document.getElementById('modal-meta-horas').innerText = '+' + formatarMinutos(totalBancoMin);
+            document.getElementById('modal-meta-horas').innerText = formatarMinutosComSinal(totalBancoMin);
             document.getElementById('modal-meta').classList.remove('hidden');
             dispararConfete();
         }
@@ -728,13 +835,10 @@
             document.getElementById('modal-meta').classList.add('hidden');
         }
 
-        // Chuva de confete (se a biblioteca carregou; silencioso caso contrário)
         function dispararConfete() {
             if (typeof confetti !== 'function') return;
             try {
-                // Rajada central
                 confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#16a34a', '#f59e0b', '#ef4444', '#ffffff'] });
-                // Canhões laterais por ~2,5s
                 const fim = Date.now() + 2500;
                 (function quadro() {
                     confetti({ particleCount: 4, angle: 60, spread: 60, origin: { x: 0, y: 0.7 }, colors: ['#16a34a', '#f59e0b', '#ef4444'] });
@@ -1115,6 +1219,12 @@
             document.getElementById('import-hora').value = d.hora || '';
             document.getElementById('import-identificacao').value = d.identificacao || '';
 
+            // NOVO: aviso quando a data importada está fora da janela do banco
+            let avisoFora = '';
+            if (d.data && !dentroPeriodoBanco(d.data)) {
+                avisoFora = `<br>🚫 <strong>Atenção:</strong> esta data está FORA do período do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}). O ponto será salvo no histórico, mas não contará para a meta de 24h.`;
+            }
+
             const info = [];
             if (d.colaborador) info.push('👤 <strong>' + d.colaborador + '</strong>');
             if (d.cpf) info.push('CPF: ' + d.cpf);
@@ -1127,7 +1237,7 @@
             if (!d.hora) avisos += '<br>⚠️ <strong>Horário não detectado</strong> — preencha manualmente.';
 
             document.getElementById('info-comprovante').innerHTML =
-                (info.join(' &nbsp;•&nbsp; ') || '<i>Não foi possível ler os dados informativos do comprovante.</i>') + avisos;
+                (info.join(' &nbsp;•&nbsp; ') || '<i>Não foi possível ler os dados informativos do comprovante.</i>') + avisos + avisoFora;
 
             renderizarSugestoes(d);
 
@@ -1284,9 +1394,29 @@
             if (bancoTotalAtual > 0) corBanco = '#047857';
             else if (bancoTotalAtual < 0) corBanco = '#b91c1c';
 
-            // NOVO: status da meta para o PDF
+            // NOVO: dados da meta com período e média necessária
+            const infoMeta = calcularInfoMeta(bancoTotalAtual);
             const metaAtingidaPDF = bancoTotalAtual >= META_FOLGA_NATAL_MIN;
-            const faltamPDF = Math.max(0, META_FOLGA_NATAL_MIN - bancoTotalAtual);
+
+            let metaTexto;
+            if (metaAtingidaPDF) {
+                metaTexto = '🎄 <strong>Meta de Natal atingida (24h no período 01/10 a 11/12/2026) — folga garantida!</strong>';
+            } else if (infoMeta.expirado) {
+                metaTexto = `⌛ Período do banco encerrado (01/10 a 11/12/2026) — meta de 24h não atingida.`;
+            } else {
+                let textoBase = `🎅 <strong>Meta Folga de Natal — 24h (01/10 a 11/12/2026):</strong> faltam ${formatarMinutos(infoMeta.falta)} • média necessária: +${formatarMinutos(infoMeta.mediaNecessaria)}/dia útil (${infoMeta.diasUteis} dias úteis restantes)`;
+
+                // Previsão por ritmo, se houver histórico suficiente no período
+                if (ritmoAtualMinDia !== null && ritmoAtualMinDia > 0) {
+                    const diasParaMeta = Math.ceil(infoMeta.falta / ritmoAtualMinDia);
+                    const refEhUtil = (new Date(infoMeta.refStr + 'T00:00:00')).getDay() % 6 !== 0;
+                    const previsaoStr = adicionarDiasUteis(infoMeta.refStr, Math.max(0, diasParaMeta - (refEhUtil ? 1 : 0)));
+                    textoBase += previsaoStr <= BANCO_FIM
+                        ? ` • no ritmo atual (+${formatarMinutos(Math.round(ritmoAtualMinDia))}/dia útil): conclusão prevista ${formatarDataBR(previsaoStr)}`
+                        : ` • ritmo atual insuficiente para o prazo`;
+                }
+                metaTexto = textoBase;
+            }
 
             let conteudoHTML = `
                 <div style="border-bottom: 1px solid #111; padding-bottom: 12px; margin-bottom: 24px;">
@@ -1340,19 +1470,17 @@
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
                     <div style="border: 1px solid #111; padding: 8px 14px; font-size: 12px;">
-                        <strong>Total Banco de Horas:</strong>
+                        <strong>Total Banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}):</strong>
                         <span style="font-weight: bold; color: ${corBanco}; margin-left: 8px;">${bancoTotalAtual > 0 ? '+' : (bancoTotalAtual < 0 ? '-' : '')}${formatarMinutos(Math.abs(bancoTotalAtual))}</span>
                     </div>
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
-                    <div style="border: 1px solid ${metaAtingidaPDF ? '#047857' : '#d97706'}; background-color: ${metaAtingidaPDF ? '#ecfdf5' : '#fffbeb'}; padding: 8px 14px; font-size: 12px; color: #111;">
-                        ${metaAtingidaPDF
-                            ? '🎄 <strong>Meta de Natal atingida (24h) — folga garantida!</strong>'
-                            : `🎅 <strong>Meta Folga de Natal (24h):</strong> faltam ${formatarMinutos(faltamPDF)}`}
+                    <div style="border: 1px solid ${metaAtingidaPDF ? '#047857' : '#d97706'}; background-color: ${metaAtingidaPDF ? '#ecfdf5' : '#fffbeb'}; padding: 8px 14px; font-size: 11px; color: #111; max-width: 100%;">
+                        ${metaTexto}
                     </div>
                 </div>
-                <p style="font-size: 9px; color: #666; margin-top: 6px; text-align: right;">Jornada obrigatória: 8h/dia • Saldo diário = horas trabalhadas − 8h</p>
+                <p style="font-size: 9px; color: #666; margin-top: 6px; text-align: right;">Jornada obrigatória: 8h/dia • Saldo diário = horas trabalhadas − 8h • Período válido do banco: 01/10/2026 a 11/12/2026 (dias úteis = seg–sex)</p>
 
                 <div style="margin-top: 60px; width: 240px; text-align: center; border-top: 1px solid #111; padding-top: 6px; font-size: 11px; color: #222;">
                     <strong>Rafael Carvalho</strong><br><span style="color: #666; font-size: 10px;">Assinatura do Funcionário</span>
