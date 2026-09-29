@@ -64,17 +64,18 @@
         </div>
 
         <!-- ===================== NAVEGAÇÃO POR ABAS ===================== -->
+        <!-- ALTERADO: a aba "Importar Comprovante" é a tela inicial (estado ativo no HTML) -->
         <div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
-            <button id="tab-btn-ponto" onclick="mostrarAba('ponto')" class="flex-1 sm:flex-none text-sm font-bold py-2.5 px-4 sm:px-6 rounded-lg transition bg-white shadow-sm text-blue-600">
+            <button id="tab-btn-ponto" onclick="mostrarAba('ponto')" class="flex-1 sm:flex-none text-sm font-bold py-2.5 px-4 sm:px-6 rounded-lg transition text-gray-500 hover:text-gray-700">
                 ⏱️ Bater Ponto
             </button>
-            <button id="tab-btn-importar" onclick="mostrarAba('importar')" class="flex-1 sm:flex-none text-sm font-bold py-2.5 px-4 sm:px-6 rounded-lg transition text-gray-500 hover:text-gray-700">
+            <button id="tab-btn-importar" onclick="mostrarAba('importar')" class="flex-1 sm:flex-none text-sm font-bold py-2.5 px-4 sm:px-6 rounded-lg transition bg-white shadow-sm text-blue-600">
                 📄 Importar Comprovante
             </button>
         </div>
 
-        <!-- ===================== ABA 1: BATER PONTO ===================== -->
-        <div id="aba-ponto" class="space-y-8">
+        <!-- ===================== ABA 1: BATER PONTO (começa oculta) ===================== -->
+        <div id="aba-ponto" class="hidden space-y-8">
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center h-40 p-6 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl transition cursor-pointer group shadow-sm">
@@ -155,14 +156,14 @@
                     </table>
                 </div>
                 <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
-                    <strong>Saldo diário</strong> = horas trabalhadas − 8h (jornada obrigatóária). 🟢 Verde = crédito • 🔴 Vermelho = débito • Dias de hoje sem Saída ficam "⏳ em andamento" e só entram no banco quando a jornada fechar.
-                    O banco vale <strong>somente entre 01/10/2026 e 11/12/2026</strong> — dias fora desse período são marcados como "fora do banco" e <strong>não computam</strong> para a meta de 24h 🎄.
+                    <strong>Saldo diário</strong> = horas trabalhadas − 8h (jornada obrigatória). 🟢 Verde = crédito • 🔴 Vermelho = débito • Dias de hoje sem Saída ficam "⏳ em andamento" e só entram no banco quando a jornada fechar.
+                    O banco vale <strong>somente entre 01/10/2026 e 11/12/2026</strong> — dias fora desse período são marcados como "fora do banco" e <strong>não computam</strong> para a meta de 24h 🎄. A média necessária usa como referência os <strong>52 dias úteis (seg–sex) do período completo</strong>.
                 </p>
             </div>
         </div>
 
-        <!-- ===================== ABA 2: IMPORTAR COMPROVANTE ===================== -->
-        <div id="aba-importar" class="hidden space-y-6">
+        <!-- ===================== ABA 2: IMPORTAR COMPROVANTE (tela inicial) ===================== -->
+        <div id="aba-importar" class="space-y-6">
 
             <!-- PASSO 1: ENVIO DA IMAGEM -->
             <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
@@ -171,7 +172,7 @@
                 <div id="dropzone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition" onclick="document.getElementById('input-imagem').click()">
                     <div class="text-4xl mb-2">🖼️</div>
                     <p class="text-sm font-semibold text-gray-600">
-                        Toque para escolher ou arraste o print do comprovante
+                        Clique, arraste ou cole (Ctrl+V) o print do comprovante
                     </p>
                     <p class="text-xs text-gray-400 mt-1">Print da tela "Comprovante de marcação" (app Senior)</p>
                 </div>
@@ -305,16 +306,6 @@
         }
 
         // =========================================================================
-        // 1.1 DETECÇÃO DE DISPOSITIVO MÓVEL
-        // =========================================================================
-        function ehDispositivoMovel() {
-            const agenteMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|BlackBerry|webOS|Mobile/i.test(navigator.userAgent);
-            const telaPequena = window.matchMedia('(max-width: 640px)').matches;
-            const suportaToque = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-            return agenteMobile || (suportaToque && telaPequena);
-        }
-
-        // =========================================================================
         // 2. CONFIGURAÇÕES DO FIREBASE
         // =========================================================================
         const firebaseConfig = {
@@ -335,7 +326,7 @@
         // Meta de horas acumuladas para a folga de Natal (24h = 1440 min)
         const META_FOLGA_NATAL_MIN = 24 * 60;
 
-        // NOVO: Janela válida do banco de horas (inclusiva) — só dias nesse intervalo contam
+        // Janela válida do banco de horas (inclusiva) — só dias nesse intervalo contam
         const BANCO_INICIO = '2026-10-01'; // 01/10/2026
         const BANCO_FIM    = '2026-12-11'; // 11/12/2026
 
@@ -344,7 +335,7 @@
         let storagePontos = null;
         let colecaoConfig = null;
         let bancoTotalAtual = 0;      // Total banco (já filtrado pelo período) — usado no PDF
-        let ritmoAtualMinDia = null;  // NOVO: média de saldo/dia útil no período — usado no PDF
+        let ritmoAtualMinDia = null;  // Média de saldo/dia útil no período — usado no PDF
 
         try {
             if (typeof firebase === 'undefined') {
@@ -369,7 +360,7 @@
         }
 
         // =========================================================================
-        // 2.1 NOVO: FUNÇÕES DA JANELA DO BANCO E DA PREVISÃO
+        // 2.1 FUNÇÕES DA JANELA DO BANCO E DA PREVISÃO
         // =========================================================================
 
         // Compara strings ISO (AAAA-MM-DD) — funciona lexicograficamente
@@ -401,16 +392,30 @@
             return obterDataLocalISO(d);
         }
 
-        // Cálculo central da meta: falta, dias úteis restantes e média necessária/dia
+        // Cálculo central da meta.
+        // MÉDIA NECESSÁRIA: referência FIXA = período completo do banco (01/10 → 11/12 = 52 dias úteis).
+        // PREVISÃO (ritmo): projeção para o futuro, a partir de hoje (ou de 01/10, se ainda não começou).
         function calcularInfoMeta(totalBancoMin) {
             const falta = Math.max(0, META_FOLGA_NATAL_MIN - totalBancoMin);
             const hojeStr = obterDataLocalISO();
             const expirado = hojeStr > BANCO_FIM;
             const antesPeriodo = hojeStr < BANCO_INICIO;
-            const refStr = antesPeriodo ? BANCO_INICIO : hojeStr; // de onde começa a contar
-            const diasUteis = expirado ? 0 : contarDiasUteis(refStr, BANCO_FIM);
-            const mediaNecessaria = (falta > 0 && diasUteis > 0) ? Math.ceil(falta / diasUteis) : 0;
-            return { falta, expirado, antesPeriodo, refStr, diasUteis, mediaNecessaria };
+
+            // Média fixa do período completo (01/10 → 11/12)
+            const diasUteisPeriodo = contarDiasUteis(BANCO_INICIO, BANCO_FIM);
+            const mediaNecessaria = (falta > 0 && !expirado) ? Math.ceil(falta / diasUteisPeriodo) : 0;
+
+            // Dias úteis restantes (para a projeção por ritmo)
+            const refPrevisao = antesPeriodo ? BANCO_INICIO : hojeStr;
+            const diasUteisRestantes = expirado ? 0 : contarDiasUteis(refPrevisao, BANCO_FIM);
+
+            return {
+                falta, expirado, antesPeriodo,
+                refStr: refPrevisao,
+                diasUteisPeriodo,
+                diasUteisRestantes,
+                mediaNecessaria
+            };
         }
 
         // =========================================================================
@@ -515,8 +520,8 @@
                 let minutos30Dias = 0;
                 let totalDias = querySnapshot.size;
                 let totalBanco = 0;
-                let somaSaldosCompletos = 0;  // NOVO: para calcular o ritmo atual
-                let diasCompletosPeriodo = 0; // NOVO: dias do período com Entrada+Saída
+                let somaSaldosCompletos = 0;  // para calcular o ritmo atual
+                let diasCompletosPeriodo = 0; // dias do período com Entrada+Saída
 
                 const hojeStr = obterDataLocalISO();
                 const limite30Dias = new Date();
@@ -536,7 +541,7 @@
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
                     if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
 
-                    // NOVO: só dias DENTRO da janela 01/10–11/12 alimentam o banco/meta
+                    // Só dias DENTRO da janela 01/10–11/12 alimentam o banco/meta
                     const noPeriodo = dentroPeriodoBanco(dataDocStr);
                     const diaEmAndamento = (dataDocStr === hojeStr && !dia.saida);
                     if (noPeriodo && !diaEmAndamento) {
@@ -551,7 +556,7 @@
                         ? `<span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded align-middle" title="${dia.identificacao ? 'ID: ' + dia.identificacao : 'Importado via comprovante'}">Comprovante</span>`
                         : '';
 
-                    // NOVO: marcador visual para dias fora da janela do banco
+                    // Marcador visual para dias fora da janela do banco
                     const badgeFora = !noPeriodo
                         ? `<span class="ml-2 text-[10px] font-semibold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded align-middle" title="Fora do período válido do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}) — não computa para a meta de Natal">fora do banco</span>`
                         : '';
@@ -615,10 +620,10 @@
                 document.getElementById('horas-30-dias').innerText = formatarMinutos(minutos30Dias);
                 document.getElementById('total-dias').innerText = `${totalDias} dias`;
 
-                // NOVO: ritmo atual = média de saldo dos dias completos do período
+                // Ritmo atual = média de saldo dos dias completos do período
                 const ritmo = diasCompletosPeriodo > 0 ? (somaSaldosCompletos / diasCompletosPeriodo) : null;
 
-                // Verifica progresso/celebração da meta (agora com dados de previsão)
+                // Verifica progresso/celebração da meta (com dados de previsão)
                 verificarMetaNatal(totalBanco, ritmo);
 
             }).catch((err) => {
@@ -704,7 +709,7 @@
         // 4.1 META DE NATAL — PROGRESSO, MÉDIA NECESSÁRIA E CELEBRAÇÃO
         // =========================================================================
 
-        // Atualiza banner + pill (agora com média necessária e previsão por ritmo)
+        // Atualiza banner + pill (média com referência fixa no período 01/10 → 11/12)
         function atualizarVisualMetaNatal(totalBancoMin, metaAtingida, ritmoMinDia = null) {
             const banner = document.getElementById('banner-meta');
             const titulo = document.getElementById('banner-titulo');
@@ -728,29 +733,25 @@
             } else {
                 linhasSub.push(`Faltam <strong>${formatarMinutos(info.falta)}</strong> de saldo para a folga 🎅 (saldo atual no período: ${formatarMinutosComSinal(totalBancoMin)})`);
 
-                if (info.diasUteis > 0 && info.mediaNecessaria > 0) {
-                    const contextoPeriodo = info.antesPeriodo
-                        ? ` — banco abre em ${formatarDataBR(BANCO_INICIO)}`
-                        : '';
-                    linhasSub.push(`🎯 Média necessária: <strong>+${formatarMinutos(info.mediaNecessaria)}/dia útil</strong> (${info.diasUteis} dias úteis até ${formatarDataBR(BANCO_FIM)}${contextoPeriodo})`);
+                // Média necessária — referência FIXA: 52 dias úteis do período completo
+                if (info.mediaNecessaria > 0) {
+                    linhasSub.push(`🎯 Média necessária: <strong>+${formatarMinutos(info.mediaNecessaria)}/dia útil</strong> (referência: ${info.diasUteisPeriodo} dias úteis de ${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)})`);
+                }
 
-                    // Previsão baseada no ritmo atual (média dos dias completos do período)
-                    if (ritmoMinDia !== null) {
-                        if (ritmoMinDia > 0) {
-                            const diasParaMeta = Math.ceil(info.falta / ritmoMinDia);
-                            const refEhUtil = (new Date(info.refStr + 'T00:00:00')).getDay() % 6 !== 0;
-                            const previsaoStr = adicionarDiasUteis(info.refStr, Math.max(0, diasParaMeta - (refEhUtil ? 1 : 0)));
-                            if (previsaoStr > BANCO_FIM) {
-                                linhasSub.push(`⚠️ Ritmo atual: +${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — nesse ritmo a meta ficaria para depois de ${formatarDataBR(BANCO_FIM)}. Precisa acelerar!`);
-                            } else {
-                                linhasSub.push(`📈 Ritmo atual: +${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — previsão de conclusão: <strong>${formatarDataBR(previsaoStr)}</strong> ✅`);
-                            }
+                // Previsão baseada no ritmo atual (projeção para o futuro, a partir de hoje)
+                if (info.diasUteisRestantes > 0 && ritmoMinDia !== null) {
+                    if (ritmoMinDia > 0) {
+                        const diasParaMeta = Math.ceil(info.falta / ritmoMinDia);
+                        const refEhUtil = (new Date(info.refStr + 'T00:00:00')).getDay() % 6 !== 0;
+                        const previsaoStr = adicionarDiasUteis(info.refStr, Math.max(0, diasParaMeta - (refEhUtil ? 1 : 0)));
+                        if (previsaoStr > BANCO_FIM) {
+                            linhasSub.push(`⚠️ Ritmo atual: +${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — nesse ritmo a meta ficaria para depois de ${formatarDataBR(BANCO_FIM)}. Precisa acelerar!`);
                         } else {
-                            linhasSub.push(`⚠️ Ritmo atual: ${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — é preciso reverter o saldo para bater a meta.`);
+                            linhasSub.push(`📈 Ritmo atual: +${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — previsão de conclusão: <strong>${formatarDataBR(previsaoStr)}</strong> ✅`);
                         }
+                    } else {
+                        linhasSub.push(`⚠️ Ritmo atual: ${formatarMinutos(Math.round(ritmoMinDia))}/dia útil — é preciso reverter o saldo para bater a meta.`);
                     }
-                } else if (info.diasUteis === 0) {
-                    linhasSub.push('⚠️ Não há mais dias úteis no período.');
                 }
             }
 
@@ -900,6 +901,7 @@
             receberArquivo(e.dataTransfer.files);
         });
 
+        // Upload por Ctrl+V (quando a aba de importação está aberta)
         document.addEventListener('paste', (e) => {
             if (document.getElementById('aba-importar').classList.contains('hidden')) return;
             const items = e.clipboardData && e.clipboardData.items;
@@ -1219,7 +1221,7 @@
             document.getElementById('import-hora').value = d.hora || '';
             document.getElementById('import-identificacao').value = d.identificacao || '';
 
-            // NOVO: aviso quando a data importada está fora da janela do banco
+            // Aviso quando a data importada está fora da janela do banco
             let avisoFora = '';
             if (d.data && !dentroPeriodoBanco(d.data)) {
                 avisoFora = `<br>🚫 <strong>Atenção:</strong> esta data está FORA do período do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}). O ponto será salvo no histórico, mas não contará para a meta de 24h.`;
@@ -1394,7 +1396,7 @@
             if (bancoTotalAtual > 0) corBanco = '#047857';
             else if (bancoTotalAtual < 0) corBanco = '#b91c1c';
 
-            // NOVO: dados da meta com período e média necessária
+            // Dados da meta com período e média necessária (referência fixa 01/10 → 11/12)
             const infoMeta = calcularInfoMeta(bancoTotalAtual);
             const metaAtingidaPDF = bancoTotalAtual >= META_FOLGA_NATAL_MIN;
 
@@ -1404,7 +1406,7 @@
             } else if (infoMeta.expirado) {
                 metaTexto = `⌛ Período do banco encerrado (01/10 a 11/12/2026) — meta de 24h não atingida.`;
             } else {
-                let textoBase = `🎅 <strong>Meta Folga de Natal — 24h (01/10 a 11/12/2026):</strong> faltam ${formatarMinutos(infoMeta.falta)} • média necessária: +${formatarMinutos(infoMeta.mediaNecessaria)}/dia útil (${infoMeta.diasUteis} dias úteis restantes)`;
+                let textoBase = `🎅 <strong>Meta Folga de Natal — 24h (01/10 a 11/12/2026):</strong> faltam ${formatarMinutos(infoMeta.falta)} • média necessária: +${formatarMinutos(infoMeta.mediaNecessaria)}/dia útil (referência: ${infoMeta.diasUteisPeriodo} dias úteis do período)`;
 
                 // Previsão por ritmo, se houver histórico suficiente no período
                 if (ritmoAtualMinDia !== null && ritmoAtualMinDia > 0) {
@@ -1504,7 +1506,8 @@
             if (colecaoPontos) {
                 carregarHistorico();
             }
-            mostrarAba(ehDispositivoMovel() ? 'importar' : 'ponto');
+            // ALTERADO: a tela inicial é SEMPRE a aba de importação (mobile e desktop)
+            mostrarAba('importar');
         };
     </script>
 </body>
