@@ -6,14 +6,17 @@
     <title>Ponto Eletrônico - Rafael Carvalho</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
+    <!-- Motor de OCR (roda 100% no navegador) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body class="bg-gray-50 font-sans min-h-screen flex flex-col items-center p-4 sm:p-8">
 
     <div class="max-w-4xl w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-8">
-        
+
+        <!-- ===================== CABEÇALHO (sempre visível) ===================== -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-100 pb-6 gap-4">
             <div>
                 <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">Funcionário</span>
@@ -23,7 +26,7 @@
             <div class="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
                 <div id="live-clock" class="text-3xl font-mono font-bold text-blue-600">00:00:00</div>
                 <div id="live-date" class="text-sm text-gray-500 font-medium">Carregando data...</div>
-                
+
                 <div class="mt-2 flex flex-wrap gap-2 justify-start sm:justify-end">
                     <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
                         ⏱️ Hoje: <span id="horas-hoje" class="font-mono font-bold text-emerald-600">00h 00m</span>
@@ -35,89 +38,186 @@
                         📆 Dias registrados: <span id="total-dias" class="font-mono font-bold text-indigo-600">0 dias</span>
                     </div>
                     <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
-                        📊 Média diária: <span id="media-horas" class="font-mono font-bold text-purple-600">00h 00m</span>
+                        📊 Total banco: <span id="total-banco" class="font-mono font-bold text-gray-500">00h 00m</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center h-40 p-6 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">📥</span>
-                <span class="text-base font-bold text-emerald-800">Entrada</span>
+        <!-- ===================== NAVEGAÇÃO POR ABAS ===================== -->
+        <div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            <button id="tab-btn-ponto" onclick="mostrarAba('ponto')" class="flex-1 sm:flex-none text-sm font-bold py-2.5 px-4 sm:px-6 rounded-lg transition bg-white shadow-sm text-blue-600">
+                ⏱️ Bater Ponto
             </button>
-            <button onclick="registrarPonto('Almoço Saída')" class="flex flex-col items-center justify-center h-40 p-6 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">☕</span>
-                <span class="text-base font-bold text-amber-800">Saída Almoço</span>
-            </button>
-            <button onclick="registrarPonto('Almoço Retorno')" class="flex flex-col items-center justify-center h-40 p-6 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">🔄</span>
-                <span class="text-base font-bold text-blue-800">Retorno Almoço</span>
-            </button>
-            <button onclick="registrarPonto('Saída')" class="flex flex-col items-center justify-center h-40 p-6 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl transition cursor-pointer group shadow-sm">
-                <span class="text-4xl mb-2 group-hover:scale-110 transition">📤</span>
-                <span class="text-base font-bold text-rose-800">Saída</span>
+            <button id="tab-btn-importar" onclick="mostrarAba('importar')" class="flex-1 sm:flex-none text-sm font-bold py-2.5 px-4 sm:px-6 rounded-lg transition text-gray-500 hover:text-gray-700">
+                📄 Importar Comprovante
             </button>
         </div>
 
-        <div class="bg-gray-50 border border-gray-150 rounded-xl p-4 space-y-3">
-            <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">🛠️ Inserir Ponto Esquecido / Manual</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
-                    <input type="date" id="manual-data" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Horário (HH:MM)</label>
-                    <input type="time" id="manual-hora" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                </div>
-                <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de Ponto</label>
-                    <select id="manual-tipo" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                        <option value="Entrada">Entrada</option>
-                        <option value="Almoço Saída">Saída Almoço</option>
-                        <option value="Almoço Retorno">Retorno Almoço</option>
-                        <option value="Saída">Saída</option>
-                    </select>
-                </div>
-                <div class="sm:col-span-4">
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Justificativa (Máx. 60 carac.)</label>
-                    <input type="text" id="manual-justificativa" maxlength="60" placeholder="Ex: Esquecimento, Atestado médico..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                </div>
-                <div class="sm:col-span-2">
-                    <button onclick="registrarPontoManual()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm p-2 rounded-lg transition shadow-sm h-[38px]">
-                        Inserir Registro
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- ===================== ABA 1: BATER PONTO ===================== -->
+        <div id="aba-ponto" class="space-y-8">
 
-        <div class="space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
-                <button onclick="exportarPDF()" class="bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1 shadow-sm">
-                    🖨️ Exportar PDF Clean
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <button onclick="registrarPonto('Entrada')" class="flex flex-col items-center justify-center h-40 p-6 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-2xl transition cursor-pointer group shadow-sm">
+                    <span class="text-4xl mb-2 group-hover:scale-110 transition">📥</span>
+                    <span class="text-base font-bold text-emerald-800">Entrada</span>
+                </button>
+                <button onclick="registrarPonto('Almoço Saída')" class="flex flex-col items-center justify-center h-40 p-6 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-2xl transition cursor-pointer group shadow-sm">
+                    <span class="text-4xl mb-2 group-hover:scale-110 transition">☕</span>
+                    <span class="text-base font-bold text-amber-800">Saída Almoço</span>
+                </button>
+                <button onclick="registrarPonto('Almoço Retorno')" class="flex flex-col items-center justify-center h-40 p-6 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl transition cursor-pointer group shadow-sm">
+                    <span class="text-4xl mb-2 group-hover:scale-110 transition">🔄</span>
+                    <span class="text-base font-bold text-blue-800">Retorno Almoço</span>
+                </button>
+                <button onclick="registrarPonto('Saída')" class="flex flex-col items-center justify-center h-40 p-6 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl transition cursor-pointer group shadow-sm">
+                    <span class="text-4xl mb-2 group-hover:scale-110 transition">📤</span>
+                    <span class="text-base font-bold text-rose-800">Saída</span>
                 </button>
             </div>
-            <div class="overflow-x-auto border border-gray-100 rounded-xl bg-white shadow-sm">
-                <table class="min-w-full divide-y divide-gray-100 text-sm text-left">
-                    <thead class="bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider">
-                        <tr>
-                            <th class="p-4">Data</th>
-                            <th class="p-4">Entrada</th>
-                            <th class="p-4">Intervalo</th>
-                            <th class="p-4">Saída</th>
-                            <th class="p-4">Justificativa</th>
-                            <th class="p-4">Total Dia</th>
-                            <th class="p-4 text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historico-tabela" class="divide-y divide-gray-100 text-gray-700">
-                        <tr>
-                            <td colspan="7" class="p-4 text-center text-gray-400 animate-pulse">Conectando ao banco de dados e buscando histórico...</td>
-                        </tr>
-                    </tbody>
-                </table>
+
+            <div class="bg-gray-50 border border-gray-150 rounded-xl p-4 space-y-3">
+                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">🛠️ Inserir Ponto Esquecido / Manual</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+                        <input type="date" id="manual-data" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Horário (HH:MM)</label>
+                        <input type="time" id="manual-hora" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de Ponto</label>
+                        <select id="manual-tipo" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                            <option value="Entrada">Entrada</option>
+                            <option value="Almoço Saída">Saída Almoço</option>
+                            <option value="Almoço Retorno">Retorno Almoço</option>
+                            <option value="Saída">Saída</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-4">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Justificativa (Máx. 60 carac.)</label>
+                        <input type="text" id="manual-justificativa" maxlength="60" placeholder="Ex: Esquecimento, Atestado médico..." class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <button onclick="registrarPontoManual()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm p-2 rounded-lg transition shadow-sm h-[38px]">
+                            Inserir Registro
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-gray-800">Histórico de Registros</h2>
+                    <button onclick="exportarPDF()" class="bg-gray-800 hover:bg-gray-900 text-white text-xs font-bold px-3 py-2 rounded-lg transition flex items-center gap-1 shadow-sm">
+                        🖨️ Exportar PDF Clean
+                    </button>
+                </div>
+                <div class="overflow-x-auto border border-gray-100 rounded-xl bg-white shadow-sm">
+                    <table class="min-w-full divide-y divide-gray-100 text-sm text-left">
+                        <thead class="bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider">
+                            <tr>
+                                <th class="p-4">Data</th>
+                                <th class="p-4">Entrada</th>
+                                <th class="p-4">Intervalo</th>
+                                <th class="p-4">Saída</th>
+                                <th class="p-4">Justificativa</th>
+                                <th class="p-4">Saldo Dia</th>
+                                <th class="p-4 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historico-tabela" class="divide-y divide-gray-100 text-gray-700">
+                            <tr>
+                                <td colspan="7" class="p-4 text-center text-gray-400 animate-pulse">Conectando ao banco de dados e buscando histórico...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                    <strong>Saldo diário</strong> = horas trabalhadas − 8h (jornada obrigatóária). 🟢 Verde = crédito (excedente) • 🔴 Vermelho = débito (não atingiu 8h) • Dias de hoje sem Saída ficam "⏳ em andamento" e só entram no banco quando a jornada fechar.
+                </p>
+            </div>
+        </div>
+
+        <!-- ===================== ABA 2: IMPORTAR COMPROVANTE ===================== -->
+        <div id="aba-importar" class="hidden space-y-6">
+
+            <!-- PASSO 1: ENVIO DA IMAGEM -->
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
+                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">📸 Passo 1 — Enviar o print do comprovante</h3>
+
+                <div id="dropzone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition" onclick="document.getElementById('input-imagem').click()">
+                    <div class="text-4xl mb-2">🖼️</div>
+                    <p class="text-sm font-semibold text-gray-600">
+                        Toque para escolher ou arraste o print do comprovante
+                    </p>
+                    <p class="text-xs text-gray-400 mt-1">Print da tela "Comprovante de marcação" (app Senior)</p>
+                </div>
+                <input type="file" id="input-imagem" accept="image/*" class="hidden" onchange="receberArquivo(this.files); this.value = '';">
+
+                <div id="preview-container" class="hidden">
+                    <div class="flex flex-col sm:flex-row gap-4 items-start">
+                        <img id="preview-imagem" class="max-h-64 rounded-lg border border-gray-200 shadow-sm mx-auto sm:mx-0" alt="Prévia do comprovante">
+                        <div class="flex-1 w-full space-y-3">
+                            <div id="status-ocr" class="hidden text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg p-3"></div>
+                            <div id="barra-progresso-container" class="hidden h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div id="barra-progresso" class="h-full bg-blue-600 transition-all duration-200" style="width: 0%"></div>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button id="btn-processar" onclick="processarImagem()" disabled class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-sm px-4 py-2 rounded-lg transition shadow-sm">
+                                    🔍 Ler comprovante (OCR)
+                                </button>
+                                <button onclick="limparImportacao()" class="bg-white hover:bg-gray-100 border border-gray-300 text-gray-600 font-bold text-sm px-4 py-2 rounded-lg transition">
+                                    Limpar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PASSO 2: CONFERÊNCIA DOS DADOS -->
+            <div id="passo-dados" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
+                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">✅ Passo 2 — Conferir e confirmar a importação</h3>
+
+                <div id="info-comprovante" class="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed"></div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
+                        <input type="date" id="import-data" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Horário</label>
+                        <input type="time" id="import-hora" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de Ponto (sugerido)</label>
+                        <select id="import-tipo" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                            <option value="Entrada">Entrada</option>
+                            <option value="Almoço Saída">Saída Almoço</option>
+                            <option value="Almoço Retorno">Retorno Almoço</option>
+                            <option value="Saída">Saída</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-5">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Justificativa / Observação</label>
+                        <input type="text" id="import-justificativa" maxlength="60" placeholder="Importado via comprovante" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 mb-1">Identificação da Marcação (código do comprovante — usado para bloquear importação duplicada)</label>
+                    <input type="text" id="import-identificacao" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-600" placeholder="Código longo do comprovante (opcional)">
+                </div>
+
+                <div id="sugestoes-chips" class="flex flex-wrap items-center gap-1"></div>
+
+                <button onclick="confirmarImportacao()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
+                    💾 Confirmar Importação
+                </button>
             </div>
         </div>
 
@@ -131,7 +231,7 @@
             try {
                 const agora = new Date();
                 document.getElementById('live-clock').innerText = agora.toLocaleTimeString('pt-BR');
-                
+
                 const opcoesData = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                 document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', opcoesData);
             } catch (e) {
@@ -150,6 +250,18 @@
         }
 
         // =========================================================================
+        // 1.1 DETECÇÃO DE DISPOSITIVO MÓVEL (NOVO)
+        // =========================================================================
+        // Mobile real = user agent de celular/tablet OU (suporte a toque + tela pequena).
+        // A combinação extra cobre iPads modernos, que se identificam como "Mac" no user agent.
+        function ehDispositivoMovel() {
+            const agenteMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|BlackBerry|webOS|Mobile/i.test(navigator.userAgent);
+            const telaPequena = window.matchMedia('(max-width: 640px)').matches;
+            const suportaToque = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            return agenteMobile || (suportaToque && telaPequena);
+        }
+
+        // =========================================================================
         // 2. CONFIGURAÇÕES DO FIREBASE
         // =========================================================================
         const firebaseConfig = {
@@ -162,10 +274,14 @@
             measurementId: "G-6ZXKLCBQ00"
         };
 
-        const NOME_COLECAO = "PontoEletronicoRafael"; 
+        const NOME_COLECAO = "PontoEletronicoRafael";
+
+        // Jornada obrigatória diária (8h = 480 min) — base do banco de horas
+        const JORNADA_DIARIA_MIN = 480;
 
         let db;
         let colecaoPontos;
+        let bancoTotalAtual = 0; // usado no PDF
 
         try {
             if (typeof firebase === 'undefined') {
@@ -179,7 +295,27 @@
         }
 
         // =========================================================================
-        // 3. LÓGICA DO SISTEMA DE PONTO
+        // 3. NAVEGAÇÃO POR ABAS
+        // =========================================================================
+        function mostrarAba(aba) {
+            const isPonto = aba === 'ponto';
+            document.getElementById('aba-ponto').classList.toggle('hidden', !isPonto);
+            document.getElementById('aba-importar').classList.toggle('hidden', isPonto);
+
+            const estilizar = (id, ativo) => {
+                const b = document.getElementById(id);
+                b.classList.toggle('bg-white', ativo);
+                b.classList.toggle('shadow-sm', ativo);
+                b.classList.toggle('text-blue-600', ativo);
+                b.classList.toggle('text-gray-500', !ativo);
+                b.classList.toggle('hover:text-gray-700', !ativo);
+            };
+            estilizar('tab-btn-ponto', isPonto);
+            estilizar('tab-btn-importar', !isPonto);
+        }
+
+        // =========================================================================
+        // 4. LÓGICA DO SISTEMA DE PONTO
         // =========================================================================
         function registrarPonto(tipo) {
             if (!colecaoPontos) {
@@ -214,7 +350,7 @@
             document.getElementById('manual-justificativa').value = '';
         }
 
-        function salvarNoFirebase(data, hora, tipo, justificativa) {
+        function salvarNoFirebase(data, hora, tipo, justificativa, extras = {}) {
             const docRef = colecaoPontos.doc(data);
             let dadosPonto = { data: data };
 
@@ -223,18 +359,18 @@
             else if (tipo === 'Almoço Retorno') dadosPonto.almocoRetorno = hora;
             else if (tipo === 'Saída') dadosPonto.saida = hora;
 
-            if (justificativa) {
-                dadosPonto.justificativa = justificativa;
-            }
+            if (justificativa) dadosPonto.justificativa = justificativa;
+            Object.assign(dadosPonto, extras); // ex: identificacao, origem
 
-            docRef.set(dadosPonto, { merge: true })
+            return docRef.set(dadosPonto, { merge: true })
                 .then(() => {
-                    alert(`Sucesso! Ponto de ${tipo} registrado às ${hora}.`);
+                    alert(`Sucesso! Ponto de ${tipo} registrado às ${hora} no dia ${formatarDataBR(data)}.`);
                     carregarHistorico();
                 })
                 .catch((error) => {
                     console.error("Erro ao salvar no Firestore:", error);
                     alert(`Falha ao salvar: ${error.message}`);
+                    throw error;
                 });
         }
 
@@ -254,7 +390,7 @@
                 let minutosHoje = 0;
                 let minutos30Dias = 0;
                 let totalDias = querySnapshot.size;
-                let somaMinutosGeral = 0;
+                let totalBanco = 0;
 
                 const hojeStr = obterDataLocalISO();
                 const limite30Dias = new Date();
@@ -266,23 +402,44 @@
                 documentos.sort((a, b) => b.id.localeCompare(a.id));
 
                 documentos.forEach((dia) => {
-                    const dataDocStr = dia.data || dia.id; 
+                    const dataDocStr = dia.data || dia.id;
                     const minutosTrabalhados = calcularHorasDia(dia);
-                    somaMinutosGeral += minutosTrabalhados;
+                    const saldoDia = minutosTrabalhados - JORNADA_DIARIA_MIN;
 
                     const dataDoc = new Date(dataDocStr + 'T00:00:00');
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
                     if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
 
+                    // Dia de HOJE sem Saída = jornada em andamento (não entra no banco ainda)
+                    const diaEmAndamento = (dataDocStr === hojeStr && !dia.saida);
+                    if (!diaEmAndamento) totalBanco += saldoDia;
+
+                    // Selo visual para pontos importados de comprovante
+                    const badgeComp = (dia.origem === 'comprovante')
+                        ? `<span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded align-middle" title="${dia.identificacao ? 'ID: ' + dia.identificacao : 'Importado via comprovante'}">Comprovante</span>`
+                        : '';
+
+                    // Célula do saldo (verde = crédito | vermelho = débito | cinza = neutro/em andamento)
+                    let celulaSaldo;
+                    if (diaEmAndamento) {
+                        celulaSaldo = `<td class="p-4 font-mono text-gray-400 text-xs" title="Jornada de hoje ainda aberta — o saldo entra no banco quando a Saída for registrada.">⏳ em andamento</td>`;
+                    } else if (saldoDia > 0) {
+                        celulaSaldo = `<td class="p-4 font-bold text-emerald-600 font-mono" title="Trabalhado: ${formatarMinutos(minutosTrabalhados)} • Obrigatório: 8h • Crédito no banco">+${formatarMinutos(saldoDia)}</td>`;
+                    } else if (saldoDia < 0) {
+                        celulaSaldo = `<td class="p-4 font-bold text-rose-600 font-mono" title="Trabalhado: ${formatarMinutos(minutosTrabalhados)} • Obrigatório: 8h • Débito no banco">-${formatarMinutos(Math.abs(saldoDia))}</td>`;
+                    } else {
+                        celulaSaldo = `<td class="p-4 font-bold text-gray-400 font-mono" title="Exatamente 8h — saldo neutro">00h 00m</td>`;
+                    }
+
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-gray-50 transition";
                     tr.innerHTML = `
-                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(dataDocStr)}</td>
+                        <td class="p-4 font-medium text-gray-900">${formatarDataBR(dataDocStr)}${badgeComp}</td>
                         <td class="p-4 text-emerald-700 font-mono font-semibold">${dia.entrada || '-'}</td>
                         <td class="p-4 text-amber-700 font-mono">${dia.almocoSaida || '-'} ➔ ${dia.almocoRetorno || '-'}</td>
                         <td class="p-4 text-rose-700 font-mono font-semibold">${dia.saida || '-'}</td>
                         <td class="p-4 text-gray-500 italic text-xs max-w-[160px] truncate" title="${dia.justificativa || ''}">${dia.justificativa || '-'}</td>
-                        <td class="p-4 font-bold text-gray-800 font-mono">${formatarMinutos(minutosTrabalhados)}</td>
+                        ${celulaSaldo}
                         <td class="p-4 text-center">
                             <button onclick="deletarRegistroDia('${dataDocStr}')" class="text-rose-500 hover:text-rose-700 font-semibold text-xs bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-md transition">
                                 Remover
@@ -292,12 +449,25 @@
                     tabela.appendChild(tr);
                 });
 
+                // ---- Total Banco (soma de todos os saldos) ----
+                bancoTotalAtual = totalBanco;
+                const elBanco = document.getElementById('total-banco');
+                elBanco.innerText = formatarMinutos(Math.abs(totalBanco));
+                elBanco.classList.remove('text-emerald-600', 'text-rose-600', 'text-gray-500');
+                if (totalBanco > 0) {
+                    elBanco.innerText = '+' + formatarMinutos(totalBanco);
+                    elBanco.classList.add('text-emerald-600');
+                } else if (totalBanco < 0) {
+                    elBanco.innerText = '-' + formatarMinutos(Math.abs(totalBanco));
+                    elBanco.classList.add('text-rose-600');
+                } else {
+                    elBanco.classList.add('text-gray-500');
+                }
+
                 document.getElementById('horas-hoje').innerText = formatarMinutos(minutosHoje);
                 document.getElementById('horas-30-dias').innerText = formatarMinutos(minutos30Dias);
                 document.getElementById('total-dias').innerText = `${totalDias} dias`;
-                
-                const mediaMinutos = totalDias > 0 ? Math.round(somaMinutosGeral / totalDias) : 0;
-                document.getElementById('media-horas').innerText = formatarMinutos(mediaMinutos);
+
             }).catch((err) => {
                 console.error("Erro Crítico no Firestore:", err);
                 const tabela = document.getElementById('historico-tabela');
@@ -317,7 +487,11 @@
             document.getElementById('horas-hoje').innerText = "00h 00m";
             document.getElementById('horas-30-dias').innerText = "00h 00m";
             document.getElementById('total-dias').innerText = "0 dias";
-            document.getElementById('media-horas').innerText = "00h 00m";
+            const elBanco = document.getElementById('total-banco');
+            elBanco.innerText = "00h 00m";
+            elBanco.classList.remove('text-emerald-600', 'text-rose-600');
+            elBanco.classList.add('text-gray-500');
+            bancoTotalAtual = 0;
         }
 
         function calcularHorasDia(dia) {
@@ -365,11 +539,411 @@
         }
 
         // =========================================================================
-        // 4. EXPORTAÇÃO EXCLUSIVA E TOTALMENTE CLEAN PARA PDF (ATUALIZADA)
+        // 5. IMPORTAÇÃO DE COMPROVANTE (OCR)
+        // =========================================================================
+        let imagemAtual = null;
+        let ocrWorker = null;
+
+        function receberArquivo(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            if (!file.type.startsWith('image/')) {
+                alert("Envie um arquivo de imagem (print do comprovante).");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => definirImagem(e.target.result);
+            reader.readAsDataURL(file);
+        }
+
+        function definirImagem(dataURL) {
+            imagemAtual = dataURL;
+            document.getElementById('preview-imagem').src = dataURL;
+            document.getElementById('preview-container').classList.remove('hidden');
+            document.getElementById('btn-processar').disabled = false;
+            document.getElementById('status-ocr').classList.add('hidden');
+            document.getElementById('barra-progresso-container').classList.add('hidden');
+        }
+
+        function limparImportacao() {
+            imagemAtual = null;
+            document.getElementById('input-imagem').value = '';
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('preview-imagem').src = '';
+            document.getElementById('status-ocr').classList.add('hidden');
+            document.getElementById('barra-progresso-container').classList.add('hidden');
+            document.getElementById('passo-dados').classList.add('hidden');
+            ['import-data', 'import-hora', 'import-justificativa', 'import-identificacao'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('import-tipo').value = 'Entrada';
+            document.getElementById('sugestoes-chips').innerHTML = '';
+        }
+
+        // Upload por arrastar e soltar
+        const dz = document.getElementById('dropzone');
+        dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('border-blue-400', 'bg-blue-50'); });
+        dz.addEventListener('dragleave', () => { dz.classList.remove('border-blue-400', 'bg-blue-50'); });
+        dz.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dz.classList.remove('border-blue-400', 'bg-blue-50');
+            receberArquivo(e.dataTransfer.files);
+        });
+
+        // Upload por Ctrl+V (quando a aba de importação está aberta)
+        document.addEventListener('paste', (e) => {
+            if (document.getElementById('aba-importar').classList.contains('hidden')) return;
+            const items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type && item.type.startsWith('image/')) {
+                    const file = item.getAsFile();
+                    if (file) { receberArquivo([file]); break; }
+                }
+            }
+        });
+
+        function atualizarStatusOCR(mensagem, progresso = null) {
+            const el = document.getElementById('status-ocr');
+            const barraContainer = document.getElementById('barra-progresso-container');
+            const barra = document.getElementById('barra-progresso');
+            el.classList.remove('hidden');
+            el.innerText = mensagem;
+            if (progresso === null) {
+                barraContainer.classList.add('hidden');
+            } else {
+                barraContainer.classList.remove('hidden');
+                barra.style.width = Math.max(2, Math.min(100, progresso)) + '%';
+            }
+        }
+
+        const STATUS_OCR_PT = {
+            'loading tesseract core': 'Baixando motor de OCR',
+            'initializing tesseract': 'Inicializando motor',
+            'loading language traineddata': 'Baixando idioma (português) — só na primeira vez',
+            'initializing api': 'Preparando leitura',
+            'recognizing text': '🔎 Lendo o comprovante'
+        };
+
+        async function obterWorkerOCR() {
+            if (ocrWorker) return ocrWorker;
+            if (typeof Tesseract === 'undefined') {
+                throw new Error('A biblioteca de OCR (Tesseract.js) não carregou. Verifique sua internet e recarregue a página.');
+            }
+            ocrWorker = await Tesseract.createWorker('por', 1, {
+                logger: (m) => {
+                    const rotulo = STATUS_OCR_PT[m.status] || m.status;
+                    if (typeof m.progress === 'number') {
+                        atualizarStatusOCR(`⏳ ${rotulo}...`, Math.round(m.progress * 100));
+                    }
+                }
+            });
+            return ocrWorker;
+        }
+
+        // Reduz a imagem para acelerar o OCR (sem perda prática de precisão)
+        function redimensionarImagem(dataURL, maxLado = 1800) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                    if (escala >= 1) { resolve(dataURL); return; }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * escala);
+                    canvas.height = Math.round(img.height * escala);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.onerror = () => resolve(dataURL);
+                img.src = dataURL;
+            });
+        }
+
+        async function processarImagem() {
+            if (!imagemAtual) { alert('Envie a imagem do comprovante primeiro.'); return; }
+            const btn = document.getElementById('btn-processar');
+            btn.disabled = true;
+            try {
+                const worker = await obterWorkerOCR();
+                const imgFinal = await redimensionarImagem(imagemAtual);
+                const { data } = await worker.recognize(imgFinal);
+                console.log('=== TEXTO LIDO PELO OCR ===\n' + data.text); // útil para diagnóstico
+
+                const extraidos = extrairDadosComprovante(data.text);
+                await preencherFormularioImportacao(extraidos);
+                atualizarStatusOCR('✅ Leitura concluída! Confira os campos no Passo 2 abaixo.', null);
+            } catch (err) {
+                console.error('Erro no OCR:', err);
+                atualizarStatusOCR('❌ Erro ao ler a imagem: ' + err.message, null);
+                alert('Não foi possível ler a imagem: ' + err.message);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function extrairDadosComprovante(texto) {
+            const linhas = texto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            const res = {
+                data: null, hora: null, identificacao: null,
+                datasAlt: [], horasAlt: [],
+                colaborador: null, cpf: null, empresa: null, cnpj: null, fuso: null
+            };
+
+            const regexData = /(\d{2})[\/\-.](\d{2})[\/\-.](\d{4})/;
+            const regexDataGeral = /\d{2}[\/\-.]\d{2}[\/\-.]\d{4}/g;
+            const regexHora = /(\d{1,2})[:h](\d{2})/;
+            const regexHoraGeral = /\d{1,2}[:h]\d{2}/g;
+            // Linha de período "20/09/2026 - 26/09/2026" deve ser ignorada
+            const ehPeriodo = (l) => /\d{2}[\/\-.]\d{2}[\/\-.]\d{4}\s*(-|—|a|at[eé])\s*\d{2}[\/\-.]\d{2}[\/\-.]\d{4}/i.test(l);
+
+            const acharLinha = (regex) => linhas.findIndex(l => regex.test(l));
+            const paraISO = (m) => `${m[3]}-${m[2]}-${m[1]}`;
+            const paraHora = (m) => `${String(Math.min(23, parseInt(m[1], 10))).padStart(2, '0')}:${String(Math.min(59, parseInt(m[2], 10))).padStart(2, '0')}`;
+
+            // ---- DATA (prioriza a que vem após o rótulo "Data") ----
+            const idxData = acharLinha(/^data\b/i);
+            if (idxData >= 0) {
+                for (let i = idxData; i <= Math.min(idxData + 2, linhas.length - 1); i++) {
+                    if (ehPeriodo(linhas[i])) continue;
+                    const m = linhas[i].match(regexData);
+                    if (m) { res.data = paraISO(m); break; }
+                }
+            }
+            if (!res.data) {
+                for (const l of linhas) {
+                    if (ehPeriodo(l)) continue;
+                    const m = l.match(regexData);
+                    if (m) { res.data = paraISO(m); break; }
+                }
+            }
+            linhas.forEach(l => {
+                if (ehPeriodo(l)) return;
+                (l.match(regexDataGeral) || []).forEach(s => res.datasAlt.push(paraISO(s.match(regexData))));
+            });
+
+            // ---- HORÁRIO (prioriza o que vem após o rótulo "Horário") ----
+            const idxHora = acharLinha(/hor[aá]ri/i);
+            if (idxHora >= 0) {
+                for (let i = idxHora; i <= Math.min(idxHora + 2, linhas.length - 1); i++) {
+                    const m = linhas[i].match(regexHora);
+                    if (m) { res.hora = paraHora(m); break; }
+                }
+            }
+            if (!res.hora) {
+                for (const l of linhas) {
+                    const m = l.match(regexHora);
+                    if (m) { res.hora = paraHora(m); break; }
+                }
+            }
+            linhas.forEach(l => {
+                (l.match(regexHoraGeral) || []).forEach(s => res.horasAlt.push(paraHora(s.match(regexHora))));
+            });
+
+            // ---- IDENTIFICAÇÃO DA MARCAÇÃO ----
+            res.identificacao = extrairIdentificacao(linhas);
+
+            // ---- CAMPOS INFORMATIVOS (só para conferência visual) ----
+            const depoisDe = (rotulo, proibidos) => {
+                const i = acharLinha(rotulo);
+                if (i < 0 || i + 1 >= linhas.length) return null;
+                const l = linhas[i + 1];
+                if (proibidos.some(p => p.test(l))) return null;
+                return l;
+            };
+            res.colaborador = depoisDe(/^colaborador/i, [/^cpf/i]);
+            res.empresa = depoisDe(/^empresa/i, [/^cnpj/i]);
+            const mCpf = texto.match(/\*{2,3}\.\d{3}\.\d{3}-\*{2}/);
+            res.cpf = mCpf ? mCpf[0] : null;
+            const mCnpj = texto.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
+            res.cnpj = mCnpj ? mCnpj[0] : null;
+            const mFuso = texto.match(/GMT\s*[+-]?\d{1,2}:\d{2}/i);
+            res.fuso = mFuso ? mFuso[0] : null;
+
+            // Remove duplicatas e a opção já escolhida
+            res.datasAlt = [...new Set(res.datasAlt)].filter(x => x && x !== res.data).slice(0, 6);
+            res.horasAlt = [...new Set(res.horasAlt)].filter(x => x && x !== res.hora).slice(0, 6);
+
+            return res;
+        }
+
+        function extrairIdentificacao(linhas) {
+            // 1) Caminho preferencial: linhas após o rótulo "Identificação..."
+            const idx = linhas.findIndex(l => /identifica/i.test(l));
+            if (idx >= 0) {
+                const partes = [];
+                const mesmaLinha = linhas[idx]
+                    .replace(/^.*?(identifica[cç][aã]o|marca[cç][aã]o)\s*:?\s*/i, '')
+                    .replace(/[^A-Za-z0-9+/=]/g, '');
+                if (mesmaLinha.length > 0) partes.push(mesmaLinha);
+                for (let i = idx + 1; i < linhas.length; i++) {
+                    if (/senior|fechar/i.test(linhas[i])) break;
+                    const limpa = linhas[i].replace(/[^A-Za-z0-9+/=]/g, '');
+                    if (limpa.length > 0) partes.push(limpa);
+                }
+                const id = partes.join('');
+                if (id.length >= 20) return id;
+            }
+            // 2) Fallback: maior bloco denso de caracteres base64 no texto
+            let melhor = '', atual = '';
+            for (const l of linhas) {
+                const limpa = l.replace(/[^A-Za-z0-9+/=]/g, '');
+                const densidade = l.length > 0 ? limpa.length / l.length : 0;
+                if (limpa.length >= 12 && densidade >= 0.7) {
+                    atual += limpa;
+                    if (atual.length > melhor.length) melhor = atual;
+                } else {
+                    atual = '';
+                }
+            }
+            return melhor.length >= 30 ? melhor : null;
+        }
+
+        // Sugere o próximo tipo de ponto faltante do dia (Entrada → Almoço → Saída)
+        async function sugerirTipoPonto(dataStr) {
+            if (!colecaoPontos) return 'Entrada';
+            try {
+                const snap = await colecaoPontos.doc(dataStr).get();
+                if (!snap.exists) return 'Entrada';
+                const d = snap.data();
+                if (!d.entrada) return 'Entrada';
+                if (!d.almocoSaida) return 'Almoço Saída';
+                if (!d.almocoRetorno) return 'Almoço Retorno';
+                if (!d.saida) return 'Saída';
+                return null; // dia completo
+            } catch (e) {
+                return 'Entrada';
+            }
+        }
+
+        async function preencherFormularioImportacao(d) {
+            document.getElementById('passo-dados').classList.remove('hidden');
+            document.getElementById('import-data').value = d.data || '';
+            document.getElementById('import-hora').value = d.hora || '';
+            document.getElementById('import-identificacao').value = d.identificacao || '';
+
+            const info = [];
+            if (d.colaborador) info.push('👤 <strong>' + d.colaborador + '</strong>');
+            if (d.cpf) info.push('CPF: ' + d.cpf);
+            if (d.empresa) info.push('🏢 ' + d.empresa);
+            if (d.cnpj) info.push('CNPJ: ' + d.cnpj);
+            if (d.fuso) info.push('🌐 ' + d.fuso);
+
+            let avisos = '';
+            if (!d.data) avisos += '<br>⚠️ <strong>Data não detectada</strong> — preencha manualmente.';
+            if (!d.hora) avisos += '<br>⚠️ <strong>Horário não detectado</strong> — preencha manualmente.';
+
+            document.getElementById('info-comprovante').innerHTML =
+                (info.join(' &nbsp;•&nbsp; ') || '<i>Não foi possível ler os dados informativos do comprovante.</i>') + avisos;
+
+            renderizarSugestoes(d);
+
+            let tipoSugerido = null;
+            let diaCompleto = false;
+            if (d.data) {
+                tipoSugerido = await sugerirTipoPonto(d.data);
+                if (tipoSugerido === null) {
+                    diaCompleto = true;
+                    tipoSugerido = 'Entrada';
+                }
+            } else {
+                tipoSugerido = 'Entrada';
+            }
+            document.getElementById('import-tipo').value = tipoSugerido;
+
+            if (diaCompleto) {
+                document.getElementById('info-comprovante').innerHTML +=
+                    '<br>⚠️ Este dia já possui os 4 pontos. A importação <strong>substituirá</strong> um deles (haverá confirmação).';
+            }
+        }
+
+        function renderizarSugestoes(d) {
+            const container = document.getElementById('sugestoes-chips');
+            container.innerHTML = '';
+            const chips = [];
+            d.datasAlt.forEach(dt => chips.push({ label: '📅 ' + formatarDataBR(dt), campo: 'import-data', valor: dt }));
+            d.horasAlt.forEach(hh => chips.push({ label: '🕐 ' + hh, campo: 'import-hora', valor: hh }));
+
+            if (chips.length === 0) {
+                container.innerHTML = '<span class="text-xs text-gray-400">Nenhuma detecção alternativa encontrada.</span>';
+                return;
+            }
+            const titulo = document.createElement('span');
+            titulo.className = 'text-xs font-semibold text-gray-500 mr-1';
+            titulo.innerText = 'Outras detecções (clique para usar):';
+            container.appendChild(titulo);
+
+            chips.forEach(c => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'text-xs bg-white border border-gray-300 hover:border-blue-400 hover:text-blue-600 px-2 py-1 rounded-full transition';
+                b.innerText = c.label;
+                b.onclick = () => { document.getElementById(c.campo).value = c.valor; };
+                container.appendChild(b);
+            });
+        }
+
+        async function confirmarImportacao() {
+            if (!colecaoPontos) {
+                alert('Erro: O sistema não está conectado ao Firebase.');
+                return;
+            }
+
+            const dataStr = document.getElementById('import-data').value;
+            const horaStr = document.getElementById('import-hora').value;
+            const tipo = document.getElementById('import-tipo').value;
+            const justificativa = document.getElementById('import-justificativa').value.trim() || 'Importado via comprovante';
+            const identificacao = document.getElementById('import-identificacao').value.trim();
+
+            if (!dataStr || !horaStr) {
+                alert('Data e horário são obrigatórios. Preencha/corrija os campos antes de confirmar.');
+                return;
+            }
+
+            const campoTipo = {
+                'Entrada': 'entrada',
+                'Almoço Saída': 'almocoSaida',
+                'Almoço Retorno': 'almocoRetorno',
+                'Saída': 'saida'
+            }[tipo];
+
+            try {
+                const snap = await colecaoPontos.doc(dataStr).get();
+
+                if (snap.exists) {
+                    const d = snap.data();
+
+                    if (identificacao && d.identificacao && d.identificacao === identificacao) {
+                        alert('⚠️ Este comprovante já foi importado anteriormente (mesma Identificação de Marcação).\nImportação cancelada para evitar duplicidade.');
+                        return;
+                    }
+                    if (d[campoTipo] === horaStr) {
+                        alert(`⚠️ O dia ${formatarDataBR(dataStr)} já possui "${tipo}" registrado às ${horaStr}.\nImportação cancelada para evitar duplicidade.`);
+                        return;
+                    }
+                    if (d[campoTipo]) {
+                        const ok = confirm(`O dia ${formatarDataBR(dataStr)} já possui "${tipo}" às ${d[campoTipo]}.\n\nDeseja substituir por ${horaStr}?`);
+                        if (!ok) return;
+                    }
+                }
+
+                await salvarNoFirebase(dataStr, horaStr, tipo, justificativa, {
+                    identificacao: identificacao,
+                    origem: 'comprovante'
+                });
+
+                limparImportacao();
+
+            } catch (err) {
+                console.error('Erro na importação:', err);
+            }
+        }
+
+        // =========================================================================
+        // 6. EXPORTAÇÃO EXCLUSIVA E TOTALMENTE CLEAN PARA PDF
         // =========================================================================
         function exportarPDF() {
             const linesOriginal = document.querySelectorAll('#historico-tabela tr');
-            
+
             if (linesOriginal.length === 0 || linesOriginal[0].innerText.includes('Nenhum registro') || linesOriginal[0].innerText.includes('Conectando')) {
                 alert("Não existem dados válidos para gerar o relatório.");
                 return;
@@ -384,15 +958,20 @@
             const agora = new Date();
             const dataEmissao = agora.toLocaleDateString('pt-BR');
 
+            // Cor do Total Banco no PDF
+            let corBanco = '#111';
+            if (bancoTotalAtual > 0) corBanco = '#047857';
+            else if (bancoTotalAtual < 0) corBanco = '#b91c1c';
+
             let conteudoHTML = `
                 <div style="border-bottom: 1px solid #111; padding-bottom: 12px; margin-bottom: 24px;">
-                    <h1 style="font-size: 18px; font-weight: bold; margin: 0; color: #111; letter-spacing: 0.5px;">Espelho de Ponto Individual</h1>
+                    <h1 style="font-size: 18px; font-weight: bold; margin: 0; color: #111; letter-spacing: 0.5px;">Espelho de Ponto Individual — Banco de Horas</h1>
                     <p style="font-size: 12px; margin: 6px 0 0 0; color: #333;">
                         <strong>Funcionário:</strong> Rafael Carvalho <span style="margin-left: 24px; color: #ccc;">|</span> <strong style="margin-left: 24px;">Emissão:</strong> ${dataEmissao}
                     </p>
                 </div>
 
-                <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 40px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 12px;">
                     <thead>
                         <tr style="background-color: #f3f4f6; border-top: 1px solid #111; border-bottom: 1px solid #111;">
                             <th style="padding: 8px; text-align: left; border: 1px solid #ddd; width: 15%;">Data</th>
@@ -400,23 +979,31 @@
                             <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 22%;">Intervalo (Saída ➔ Retorno)</th>
                             <th style="padding: 8px; text-align: center; border: 1px solid #ddd; width: 12%;">Saída</th>
                             <th style="padding: 8px; text-align: left; border: 1px solid #ddd; width: 24%;">Justificativa</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid #ddd; width: 15%;">Total Diário</th>
+                            <th style="padding: 8px; text-align: right; border: 1px solid #ddd; width: 15%;">Saldo Diário (8h)</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
 
             linesOriginal.forEach(linha => {
-                const colunas = stroke = linha.querySelectorAll('td');
+                const colunas = linha.querySelectorAll('td');
                 if (colunas.length >= 6) {
+                    const dataTexto = colunas[0].childNodes[0] ? colunas[0].childNodes[0].textContent.trim() : colunas[0].innerText;
+                    const saldoTexto = colunas[5].innerText.trim();
+
+                    let saldoEstilo = 'color: #111; font-weight: bold;';
+                    if (saldoTexto.includes('em andamento')) saldoEstilo = 'color: #9ca3af; font-style: italic; font-size: 9px;';
+                    else if (saldoTexto.startsWith('+')) saldoEstilo = 'color: #047857; font-weight: bold;';
+                    else if (saldoTexto.startsWith('-')) saldoEstilo = 'color: #b91c1c; font-weight: bold;';
+
                     conteudoHTML += `
                         <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 8px; border: 1px solid #ddd;">${colunas[0].innerText}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${dataTexto}</td>
                             <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[1].innerText}</td>
                             <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #444;">${colunas[2].innerText}</td>
                             <td style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${colunas[3].innerText}</td>
                             <td style="padding: 8px; border: 1px solid #ddd; color: #555; font-style: italic; font-size: 10px;">${colunas[4].innerText}</td>
-                            <td style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">${colunas[5].innerText}</td>
+                            <td style="padding: 8px; text-align: right; border: 1px solid #ddd; ${saldoEstilo}">${saldoTexto}</td>
                         </tr>
                     `;
                 }
@@ -425,6 +1012,14 @@
             conteudoHTML += `
                     </tbody>
                 </table>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                    <div style="border: 1px solid #111; padding: 8px 14px; font-size: 12px;">
+                        <strong>Total Banco de Horas:</strong>
+                        <span style="font-weight: bold; color: ${corBanco}; margin-left: 8px;">${bancoTotalAtual > 0 ? '+' : (bancoTotalAtual < 0 ? '-' : '')}${formatarMinutos(Math.abs(bancoTotalAtual))}</span>
+                    </div>
+                </div>
+                <p style="font-size: 9px; color: #666; margin-top: 6px; text-align: right;">Jornada obrigatória: 8h/dia • Saldo diário = horas trabalhadas − 8h</p>
 
                 <div style="margin-top: 60px; width: 240px; text-align: center; border-top: 1px solid #111; padding-top: 6px; font-size: 11px; color: #222;">
                     <strong>Rafael Carvalho</strong><br><span style="color: #666; font-size: 10px;">Assinatura do Funcionário</span>
@@ -448,6 +1043,9 @@
             if (colecaoPontos) {
                 carregarHistorico();
             }
+            // NOVO: no mobile, a tela inicial é a aba de importação (fluxo principal:
+            // tirar print no app Senior → importar aqui). No desktop, abre em "Bater Ponto".
+            mostrarAba(ehDispositivoMovel() ? 'importar' : 'ponto');
         };
     </script>
 </body>
