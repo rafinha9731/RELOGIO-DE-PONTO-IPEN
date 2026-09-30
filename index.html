@@ -40,7 +40,6 @@
                     <div class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block">
                         📆 Dias registrados: <span id="total-dias" class="font-mono font-bold text-indigo-600">0 dias</span>
                     </div>
-                    <!-- Pill do banco com mini barra de progresso da meta (período 01/10 a 11/12) -->
                     <div id="pill-banco" title="Soma dos saldos entre 01/10/2026 e 11/12/2026 (período válido do banco de horas)" class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1.5 rounded-lg inline-block min-w-[170px]">
                         <div>🎄 Total banco: <span id="total-banco" class="font-mono font-bold text-gray-500">00h 00m</span> <span class="text-gray-400">/ 24h</span></div>
                         <div class="h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
@@ -64,7 +63,6 @@
         </div>
 
         <!-- ===================== NAVEGAÇÃO POR ABAS ===================== -->
-        <!-- ALTERADO: a aba "Importar Comprovante" é a tela inicial (estado ativo no HTML) -->
         <div class="flex gap-1 bg-gray-100 p-1 rounded-xl">
             <button id="tab-btn-ponto" onclick="mostrarAba('ponto')" class="flex-1 sm:flex-none text-sm font-bold py-2.5 px-4 sm:px-6 rounded-lg transition text-gray-500 hover:text-gray-700">
                 ⏱️ Bater Ponto
@@ -165,6 +163,12 @@
         <!-- ===================== ABA 2: IMPORTAR COMPROVANTE (tela inicial) ===================== -->
         <div id="aba-importar" class="space-y-6">
 
+            <!-- NOVO (DEBUG): faixa de diagnóstico rápido -->
+            <div id="faixa-diagnostico" class="hidden text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3 flex items-center justify-between gap-2">
+                <span id="faixa-diagnostico-texto">⚠️ Um problema foi detectado. Abra o diagnóstico para ver os detalhes.</span>
+                <button onclick="abrirDebug()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap">🐞 Ver diagnóstico</button>
+            </div>
+
             <!-- PASSO 1: ENVIO DA IMAGEM -->
             <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
                 <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">📸 Passo 1 — Enviar o print do comprovante</h3>
@@ -202,6 +206,11 @@
             <!-- PASSO 2: CONFERÊNCIA DOS DADOS -->
             <div id="passo-dados" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
                 <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">✅ Passo 2 — Conferir e confirmar a importação</h3>
+
+                <!-- NOVO (DEBUG): alerta destacado quando OCR não detecta data/hora -->
+                <div id="alerta-campos-vazios" class="hidden text-xs font-bold text-amber-800 bg-amber-100 border-2 border-amber-300 rounded-lg p-3 leading-relaxed">
+                    ⚠️ <strong>ATENÇÃO:</strong> o OCR não conseguiu preencher <span id="alerta-campos-lista">alguns campos</span>. Preencha <strong>manualmente</strong> nos campos abaixo antes de confirmar — senão a importação será bloqueada.
+                </div>
 
                 <div id="info-comprovante" class="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed"></div>
 
@@ -279,7 +288,204 @@
         </div>
     </div>
 
+    <!-- ===================== NOVO (DEBUG): BOTÃO FLUTUANTE + MODAL DE DIAGNÓSTICO ===================== -->
+    <button id="btn-debug" onclick="abrirDebug()" title="Diagnóstico do sistema" class="fixed bottom-4 right-4 z-40 h-12 w-12 rounded-full bg-gray-800 hover:bg-gray-900 text-white shadow-lg flex items-center justify-center text-xl">
+        🐞
+        <span id="badge-erros-debug" class="hidden absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">0</span>
+    </button>
+
+    <div id="modal-debug" class="hidden fixed inset-0 z-[70] bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="if(event.target === this) fecharDebug()">
+        <div class="bg-white rounded-xl p-4 max-w-xl w-full max-h-[92vh] overflow-auto shadow-xl">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-gray-800">🐞 Diagnóstico do Sistema</h3>
+                <button onclick="fecharDebug()" class="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">✕</button>
+            </div>
+
+            <!-- Estado do ambiente -->
+            <div id="debug-estado" class="text-[11px] font-mono bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1 mb-3"></div>
+
+            <!-- Testes rápidos -->
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button onclick="testarConexaoFirestore()" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg">🧪 Testar banco (Firestore)</button>
+                <button onclick="testarOCRInterno()" class="text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg">🧪 Testar OCR</button>
+            </div>
+            <div id="debug-testes" class="text-[11px] font-mono bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3 space-y-1"></div>
+
+            <!-- Ações -->
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button onclick="copiarDebug()" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg">📋 Copiar tudo (para enviar)</button>
+                <button onclick="limparDebug()" class="text-xs font-bold bg-white border border-gray-300 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg">🗑️ Limpar logs</button>
+            </div>
+
+            <!-- Último texto OCR -->
+            <details class="mb-3">
+                <summary class="text-xs font-bold text-gray-600 cursor-pointer">🔍 Último texto lido pelo OCR</summary>
+                <pre id="debug-ocr-texto" class="text-[10px] font-mono bg-gray-900 text-gray-100 rounded-lg p-3 mt-2 max-h-48 overflow-auto whitespace-pre-wrap">— nenhum ainda —</pre>
+            </details>
+
+            <!-- Log de eventos -->
+            <div class="text-xs font-bold text-gray-600 mb-1">Registro de eventos (mais recente no topo):</div>
+            <div id="debug-logs" class="text-[10px] font-mono bg-gray-900 text-gray-100 rounded-lg p-3 max-h-64 overflow-auto space-y-0.5"></div>
+        </div>
+    </div>
+
     <script>
+        // =========================================================================
+        // 0. NOVO: SISTEMA DE DEBUG / DIAGNÓSTICO
+        // =========================================================================
+        let debugLogs = [];
+        let ultimoTextoOCR = '';
+        let contadorErrosDebug = 0;
+
+        function debugLog(msg, tipo = 'info') {
+            const ts = new Date().toLocaleTimeString('pt-BR');
+            const cores = { info: 'text-gray-300', ok: 'text-emerald-400', warn: 'text-amber-400', erro: 'text-rose-400' };
+            debugLogs.push({ ts, tipo, msg });
+            console.log(`[${tipo.toUpperCase()}] ${ts} — ${msg}`);
+
+            const container = document.getElementById('debug-logs');
+            if (container) {
+                const linha = document.createElement('div');
+                linha.className = cores[tipo] || 'text-gray-300';
+                linha.innerText = `${ts} [${tipo.toUpperCase()}] ${msg}`;
+                container.prepend(linha);
+                while (container.children.length > 200) container.removeChild(container.lastChild);
+            }
+
+            if (tipo === 'erro') {
+                contadorErrosDebug++;
+                const badge = document.getElementById('badge-erros-debug');
+                badge.innerText = contadorErrosDebug;
+                badge.classList.remove('hidden');
+                document.getElementById('btn-debug').classList.replace('bg-gray-800', 'bg-rose-600');
+                document.getElementById('faixa-diagnostico').classList.remove('hidden');
+            }
+        }
+
+        function abrirDebug() {
+            renderizarEstadoDebug();
+            document.getElementById('modal-debug').classList.remove('hidden');
+        }
+        function fecharDebug() { document.getElementById('modal-debug').classList.add('hidden'); }
+
+        function renderizarEstadoDebug() {
+            const itens = [
+                ['Biblioteca OCR (Tesseract.js)', typeof Tesseract !== 'undefined' ? '✅ carregada' : '❌ NÃO carregou (internet/bloqueio)'],
+                ['Firebase SDK', typeof firebase !== 'undefined' ? '✅ carregado' : '❌ NÃO carregou'],
+                ['Firestore (banco de dados)', colecaoPontos ? '✅ conectado' : '❌ não inicializado'],
+                ['Firebase Storage (imagens)', storagePontos ? '✅ disponível' : '⚠️ indisponível (usa fallback no Firestore)'],
+                ['Conexão de rede', navigator.onLine ? '✅ online' : '❌ OFFLINE'],
+                ['Imagem carregada', imagemAtual ? `✅ ~${Math.round(imagemAtual.length / 1024)} KB` : '— nenhuma'],
+                ['Meta / Período', `${META_FOLGA_NATAL_MIN / 60}h • ${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}`],
+                ['Navegador', navigator.userAgent.substring(0, 90) + '...'],
+                ['Tela', `${window.innerWidth}×${window.innerHeight}px`]
+            ];
+            document.getElementById('debug-estado').innerHTML =
+                itens.map(([k, v]) => `<div><span class="text-gray-500">${k}:</span> ${v}</div>`).join('');
+        }
+
+        async function copiarDebug() {
+            let texto = '=== DIAGNÓSTICO PONTO ELETRÔNICO ===\n';
+            texto += `Data: ${new Date().toLocaleString('pt-BR')}\n`;
+            texto += `Navegador: ${navigator.userAgent}\n`;
+            texto += `Rede online: ${navigator.onLine}\n`;
+            texto += `Tesseract: ${typeof Tesseract !== 'undefined'} | Firebase: ${typeof firebase !== 'undefined'} | Storage: ${!!storagePontos}\n\n`;
+            texto += '=== ÚLTIMO TEXTO OCR ===\n' + (ultimoTextoOCR || '(nenhum)') + '\n\n';
+            texto += '=== EVENTOS (antigos → recentes) ===\n';
+            debugLogs.forEach(l => { texto += `${l.ts} [${l.tipo.toUpperCase()}] ${l.msg}\n`; });
+
+            try {
+                await navigator.clipboard.writeText(texto);
+                alert('✅ Diagnóstico copiado! Cole e envie para análise.');
+            } catch (e) {
+                // Fallback para iOS/navegadores antigos
+                const ta = document.createElement('textarea');
+                ta.value = texto;
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                    alert('✅ Diagnóstico copiado! Cole e envie para análise.');
+                } catch (e2) {
+                    alert('Não foi possível copiar automaticamente. Tire um print do painel de logs.');
+                }
+                document.body.removeChild(ta);
+            }
+        }
+
+        function limparDebug() {
+            debugLogs = [];
+            contadorErrosDebug = 0;
+            document.getElementById('debug-logs').innerHTML = '';
+            document.getElementById('badge-erros-debug').classList.add('hidden');
+            document.getElementById('btn-debug').classList.replace('bg-rose-600', 'bg-gray-800');
+            document.getElementById('faixa-diagnostico').classList.add('hidden');
+            debugLog('Logs limpos pelo usuário', 'info');
+        }
+
+        // Captura QUALQUER erro JS não tratado (crucial p/ descobrir falhas no celular)
+        window.addEventListener('error', (e) => {
+            debugLog(`Erro JS: ${e.message} (linha ${e.lineno})`, 'erro');
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            debugLog(`Promessa rejeitada não tratada: ${e.reason}`, 'erro');
+        });
+
+        // Timeout genérico — evita travamento eterno no mobile
+        function comTimeout(promessa, ms, mensagem) {
+            let timer;
+            const rejeita = new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error(mensagem)), ms);
+            });
+            return Promise.race([promessa, rejeita]).finally(() => clearTimeout(timer));
+        }
+
+        // Teste completo de escrita/leitura no Firestore
+        async function testarConexaoFirestore() {
+            const saida = document.getElementById('debug-testes');
+            saida.innerHTML += `<div class="text-blue-300">🧪 Testando Firestore...</div>`;
+            if (!colecaoPontos) {
+                saida.innerHTML += `<div class="text-rose-400">❌ Firestore não inicializado. Verifique a internet e recarregue.</div>`;
+                debugLog('Teste Firestore: colecaoPontos nulo', 'erro');
+                return;
+            }
+            try {
+                const ref = colecaoPontos.doc('_debug_conn_test');
+                await comTimeout(ref.set({ teste: true, ts: Date.now() }), 15000, 'Tempo esgotado ao ESCREVER (15s)');
+                const snap = await comTimeout(ref.get(), 15000, 'Tempo esgotado ao LER (15s)');
+                await ref.delete().catch(() => {});
+                saida.innerHTML += `<div class="text-emerald-400">✅ Firestore OK — escrita e leitura funcionam.</div>`;
+                debugLog('Teste Firestore: SUCESSO', 'ok');
+            } catch (e) {
+                saida.innerHTML += `<div class="text-rose-400">❌ Firestore falhou: ${e.code || ''} ${e.message}</div>`;
+                debugLog(`Teste Firestore falhou: ${e.code || ''} ${e.message}`, 'erro');
+            }
+        }
+
+        // Teste do pipeline de OCR com imagem gerada localmente
+        async function testarOCRInterno() {
+            const saida = document.getElementById('debug-testes');
+            saida.innerHTML += `<div class="text-purple-300">🧪 Testando OCR com imagem de teste...</div>`;
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 600; canvas.height = 150;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 600, 150);
+                ctx.fillStyle = '#000'; ctx.font = 'bold 36px Arial';
+                ctx.fillText('Data 23/09/2026', 20, 60);
+                ctx.fillText('Horario 17:04', 20, 120);
+
+                const worker = await comTimeout(obterWorkerOCR(), 120000, 'Worker do OCR não respondeu em 120s');
+                const { data } = await comTimeout(worker.recognize(canvas.toDataURL('image/png')), 90000, 'OCR não respondeu em 90s');
+                const lido = data.text.trim();
+                saida.innerHTML += `<div class="text-emerald-400">✅ OCR OK — leu: "${lido.replace(/\n/g, ' ').substring(0, 80)}"</div>`;
+                debugLog(`Teste OCR: SUCESSO — "${lido.replace(/\n/g, ' ').substring(0, 60)}"`, 'ok');
+            } catch (e) {
+                saida.innerHTML += `<div class="text-rose-400">❌ OCR falhou: ${e.message}</div>`;
+                debugLog(`Teste OCR falhou: ${e.message}`, 'erro');
+            }
+        }
+
         // =========================================================================
         // 1. RELÓGIO E DATA ATUAL
         // =========================================================================
@@ -334,8 +540,8 @@
         let colecaoPontos;
         let storagePontos = null;
         let colecaoConfig = null;
-        let bancoTotalAtual = 0;      // Total banco (já filtrado pelo período) — usado no PDF
-        let ritmoAtualMinDia = null;  // Média de saldo/dia útil no período — usado no PDF
+        let bancoTotalAtual = 0;
+        let ritmoAtualMinDia = null;
 
         try {
             if (typeof firebase === 'undefined') {
@@ -353,22 +559,21 @@
                     console.warn("SDK do Storage não carregado — imagens serão salvas no Firestore (fallback).");
                 }
             } catch (e) {
-                console.warn("Firebase Storage indisponível — imagens serão salvas no Firestore (fallback):", e.message);
+                console.warn("Firebase Storage indisponível:", e.message);
             }
+            debugLog('Firebase inicializado com sucesso', 'ok');
         } catch (error) {
             console.error("Erro ao conectar com Firebase:", error.message);
+            debugLog('Falha ao inicializar Firebase: ' + error.message, 'erro');
         }
 
         // =========================================================================
         // 2.1 FUNÇÕES DA JANELA DO BANCO E DA PREVISÃO
         // =========================================================================
-
-        // Compara strings ISO (AAAA-MM-DD) — funciona lexicograficamente
         function dentroPeriodoBanco(dataStr) {
             return !!dataStr && dataStr >= BANCO_INICIO && dataStr <= BANCO_FIM;
         }
 
-        // Conta dias úteis (seg–sex) entre duas datas ISO, inclusivas
         function contarDiasUteis(inicioStr, fimStr) {
             const fim = new Date(fimStr + 'T00:00:00');
             const d = new Date(inicioStr + 'T00:00:00');
@@ -381,7 +586,6 @@
             return dias;
         }
 
-        // Avança N dias úteis a partir de uma data ISO e retorna a data resultante
         function adicionarDiasUteis(dataStr, nDias) {
             const d = new Date(dataStr + 'T00:00:00');
             let contados = 0;
@@ -392,20 +596,15 @@
             return obterDataLocalISO(d);
         }
 
-        // Cálculo central da meta.
-        // MÉDIA NECESSÁRIA: referência FIXA = período completo do banco (01/10 → 11/12 = 52 dias úteis).
-        // PREVISÃO (ritmo): projeção para o futuro, a partir de hoje (ou de 01/10, se ainda não começou).
         function calcularInfoMeta(totalBancoMin) {
             const falta = Math.max(0, META_FOLGA_NATAL_MIN - totalBancoMin);
             const hojeStr = obterDataLocalISO();
             const expirado = hojeStr > BANCO_FIM;
             const antesPeriodo = hojeStr < BANCO_INICIO;
 
-            // Média fixa do período completo (01/10 → 11/12)
             const diasUteisPeriodo = contarDiasUteis(BANCO_INICIO, BANCO_FIM);
             const mediaNecessaria = (falta > 0 && !expirado) ? Math.ceil(falta / diasUteisPeriodo) : 0;
 
-            // Dias úteis restantes (para a projeção por ritmo)
             const refPrevisao = antesPeriodo ? BANCO_INICIO : hojeStr;
             const diasUteisRestantes = expirado ? 0 : contarDiasUteis(refPrevisao, BANCO_FIM);
 
@@ -479,6 +678,8 @@
         }
 
         function salvarNoFirebase(data, hora, tipo, justificativa, extras = {}) {
+            debugLog(`Salvando no Firestore: ${data} | ${tipo}=${hora} | extras=${JSON.stringify(Object.keys(extras))}`, 'info');
+
             const docRef = colecaoPontos.doc(data);
             let dadosPonto = { data: data };
 
@@ -492,23 +693,26 @@
 
             return docRef.set(dadosPonto, { merge: true })
                 .then(() => {
+                    debugLog(`Firestore: ponto salvo com sucesso (${data}/${tipo})`, 'ok');
                     alert(`Sucesso! Ponto de ${tipo} registrado às ${hora} no dia ${formatarDataBR(data)}.`);
                     carregarHistorico();
                 })
                 .catch((error) => {
-                    console.error("Erro ao salvar no Firestore:", error);
-                    alert(`Falha ao salvar: ${error.message}`);
+                    debugLog(`Firestore FALHOU ao salvar: ${error.code || ''} ${error.message}`, 'erro');
+                    alert(`Falha ao salvar no banco de dados.\n\nCódigo: ${error.code || 'desconhecido'}\nDetalhe: ${error.message}\n\nAbra o 🐞 diagnóstico para mais informações.`);
                     throw error;
                 });
         }
 
         function carregarHistorico() {
             if (!colecaoPontos) return;
+            debugLog('Buscando histórico no Firestore...', 'info');
 
             colecaoPontos.get().then((querySnapshot) => {
                 const tabela = document.getElementById('historico-tabela');
                 tabela.innerHTML = '';
                 indiceComprovantes = {};
+                debugLog(`Histórico carregado: ${querySnapshot.size} dias`, 'ok');
 
                 if (querySnapshot.empty) {
                     tabela.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">Nenhum registro encontrado na coleção "${NOME_COLECAO}".</td></tr>`;
@@ -520,8 +724,8 @@
                 let minutos30Dias = 0;
                 let totalDias = querySnapshot.size;
                 let totalBanco = 0;
-                let somaSaldosCompletos = 0;  // para calcular o ritmo atual
-                let diasCompletosPeriodo = 0; // dias do período com Entrada+Saída
+                let somaSaldosCompletos = 0;
+                let diasCompletosPeriodo = 0;
 
                 const hojeStr = obterDataLocalISO();
                 const limite30Dias = new Date();
@@ -541,7 +745,6 @@
                     if (dataDocStr === hojeStr) minutosHoje += minutosTrabalhados;
                     if (dataDoc >= limite30Dias) minutos30Dias += minutosTrabalhados;
 
-                    // Só dias DENTRO da janela 01/10–11/12 alimentam o banco/meta
                     const noPeriodo = dentroPeriodoBanco(dataDocStr);
                     const diaEmAndamento = (dataDocStr === hojeStr && !dia.saida);
                     if (noPeriodo && !diaEmAndamento) {
@@ -556,7 +759,6 @@
                         ? `<span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded align-middle" title="${dia.identificacao ? 'ID: ' + dia.identificacao : 'Importado via comprovante'}">Comprovante</span>`
                         : '';
 
-                    // Marcador visual para dias fora da janela do banco
                     const badgeFora = !noPeriodo
                         ? `<span class="ml-2 text-[10px] font-semibold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded align-middle" title="Fora do período válido do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}) — não computa para a meta de Natal">fora do banco</span>`
                         : '';
@@ -602,7 +804,6 @@
                     tabela.appendChild(tr);
                 });
 
-                // ---- Total Banco (soma dos saldos SÓ do período 01/10–11/12) ----
                 bancoTotalAtual = totalBanco;
                 const elBanco = document.getElementById('total-banco');
                 elBanco.classList.remove('text-emerald-600', 'text-rose-600', 'text-gray-500');
@@ -620,14 +821,11 @@
                 document.getElementById('horas-30-dias').innerText = formatarMinutos(minutos30Dias);
                 document.getElementById('total-dias').innerText = `${totalDias} dias`;
 
-                // Ritmo atual = média de saldo dos dias completos do período
                 const ritmo = diasCompletosPeriodo > 0 ? (somaSaldosCompletos / diasCompletosPeriodo) : null;
-
-                // Verifica progresso/celebração da meta (com dados de previsão)
                 verificarMetaNatal(totalBanco, ritmo);
 
             }).catch((err) => {
-                console.error("Erro Crítico no Firestore:", err);
+                debugLog(`Erro ao carregar histórico: ${err.code || ''} ${err.message}`, 'erro');
                 const tabela = document.getElementById('historico-tabela');
                 tabela.innerHTML = `
                     <tr>
@@ -708,8 +906,6 @@
         // =========================================================================
         // 4.1 META DE NATAL — PROGRESSO, MÉDIA NECESSÁRIA E CELEBRAÇÃO
         // =========================================================================
-
-        // Atualiza banner + pill (média com referência fixa no período 01/10 → 11/12)
         function atualizarVisualMetaNatal(totalBancoMin, metaAtingida, ritmoMinDia = null) {
             const banner = document.getElementById('banner-meta');
             const titulo = document.getElementById('banner-titulo');
@@ -733,12 +929,10 @@
             } else {
                 linhasSub.push(`Faltam <strong>${formatarMinutos(info.falta)}</strong> de saldo para a folga 🎅 (saldo atual no período: ${formatarMinutosComSinal(totalBancoMin)})`);
 
-                // Média necessária — referência FIXA: 52 dias úteis do período completo
                 if (info.mediaNecessaria > 0) {
                     linhasSub.push(`🎯 Média necessária: <strong>+${formatarMinutos(info.mediaNecessaria)}/dia útil</strong> (referência: ${info.diasUteisPeriodo} dias úteis de ${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)})`);
                 }
 
-                // Previsão baseada no ritmo atual (projeção para o futuro, a partir de hoje)
                 if (info.diasUteisRestantes > 0 && ritmoMinDia !== null) {
                     if (ritmoMinDia > 0) {
                         const diasParaMeta = Math.ceil(info.falta / ritmoMinDia);
@@ -784,7 +978,6 @@
             sub.innerHTML = linhasSub.join('<br>');
         }
 
-        // Verifica se cruzou a meta e dispara a celebração UMA vez por cruzamento
         async function verificarMetaNatal(totalBancoMin, ritmoMinDia = null) {
             ritmoAtualMinDia = ritmoMinDia;
             const atingiu = totalBancoMin >= META_FOLGA_NATAL_MIN;
@@ -850,7 +1043,7 @@
         }
 
         // =========================================================================
-        // 5. IMPORTAÇÃO DE COMPROVANTE (OCR)
+        // 5. IMPORTAÇÃO DE COMPROVANTE (OCR) — com debug instrumentado
         // =========================================================================
         let imagemAtual = null;
         let ocrWorker = null;
@@ -859,20 +1052,48 @@
         function receberArquivo(files) {
             if (!files || files.length === 0) return;
             const file = files[0];
+            debugLog(`Arquivo recebido: tipo=${file.type || '?'} | ~${Math.round(file.size / 1024)} KB | nome=${(file.name || 'print').substring(0, 40)}`, 'info');
+
             if (!file.type.startsWith('image/')) {
-                alert("Envie um arquivo de imagem (print do comprovante).");
+                debugLog(`Arquivo rejeitado: tipo "${file.type}" não é imagem`, 'erro');
+                alert("Envie um arquivo de imagem (print do comprovante).\nTipo recebido: " + (file.type || 'desconhecido'));
                 return;
             }
             const reader = new FileReader();
             reader.onload = (e) => definirImagem(e.target.result);
+            reader.onerror = () => {
+                debugLog('Falha ao ler o arquivo (FileReader)', 'erro');
+                alert('Não foi possível ler o arquivo. Tente novamente.');
+            };
             reader.readAsDataURL(file);
         }
 
-        function definirImagem(dataURL) {
+        // NOVO: verifica se o navegador CONSEGUE decodificar a imagem (pega problema de HEIC etc.)
+        function testarDecodificacao(dataURL) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ ok: true, w: img.naturalWidth, h: img.naturalHeight });
+                img.onerror = () => resolve({ ok: false });
+                img.src = dataURL;
+            });
+        }
+
+        async function definirImagem(dataURL) {
+            debugLog(`Imagem em memória: ~${Math.round(dataURL.length / 1024)} KB (base64)`, 'info');
+
+            const teste = await testarDecodificacao(dataURL);
+            if (!teste.ok) {
+                debugLog('Navegador NÃO conseguiu decodificar a imagem (formato possivelmente HEIC/inegociável)', 'erro');
+                alert('❌ Seu navegador não conseguiu abrir esta imagem.\n\nIsso acontece com fotos em formato HEIC (iPhone) ou arquivos corrompidos.\n\nSolução: tire um NOVO print da tela (prints são PNG/JPEG e funcionam) em vez de escolher a foto da galeria.');
+                document.getElementById('btn-processar').disabled = true;
+            } else {
+                debugLog(`Imagem decodificada OK: ${teste.w}×${teste.h}px`, 'ok');
+            }
+
             imagemAtual = dataURL;
             document.getElementById('preview-imagem').src = dataURL;
             document.getElementById('preview-container').classList.remove('hidden');
-            document.getElementById('btn-processar').disabled = false;
+            document.getElementById('btn-processar').disabled = !teste.ok;
             document.getElementById('status-ocr').classList.add('hidden');
             document.getElementById('barra-progresso-container').classList.add('hidden');
         }
@@ -890,6 +1111,8 @@
             });
             document.getElementById('import-tipo').value = 'Entrada';
             document.getElementById('sugestoes-chips').innerHTML = '';
+            document.getElementById('alerta-campos-vazios').classList.add('hidden');
+            debugLog('Importação limpa', 'info');
         }
 
         const dz = document.getElementById('dropzone');
@@ -898,16 +1121,17 @@
         dz.addEventListener('drop', (e) => {
             e.preventDefault();
             dz.classList.remove('border-blue-400', 'bg-blue-50');
+            debugLog('Imagem solta via drag-and-drop', 'info');
             receberArquivo(e.dataTransfer.files);
         });
 
-        // Upload por Ctrl+V (quando a aba de importação está aberta)
         document.addEventListener('paste', (e) => {
             if (document.getElementById('aba-importar').classList.contains('hidden')) return;
             const items = e.clipboardData && e.clipboardData.items;
             if (!items) return;
             for (const item of items) {
                 if (item.type && item.type.startsWith('image/')) {
+                    debugLog('Imagem colada via Ctrl+V', 'info');
                     const file = item.getAsFile();
                     if (file) { receberArquivo([file]); break; }
                 }
@@ -941,14 +1165,20 @@
             if (typeof Tesseract === 'undefined') {
                 throw new Error('A biblioteca de OCR (Tesseract.js) não carregou. Verifique sua internet e recarregue a página.');
             }
-            ocrWorker = await Tesseract.createWorker('por', 1, {
-                logger: (m) => {
-                    const rotulo = STATUS_OCR_PT[m.status] || m.status;
-                    if (typeof m.progress === 'number') {
-                        atualizarStatusOCR(`⏳ ${rotulo}...`, Math.round(m.progress * 100));
+            debugLog('Criando worker do OCR (idioma: por)...', 'info');
+            ocrWorker = await comTimeout(
+                Tesseract.createWorker('por', 1, {
+                    logger: (m) => {
+                        const rotulo = STATUS_OCR_PT[m.status] || m.status;
+                        if (typeof m.progress === 'number') {
+                            atualizarStatusOCR(`⏳ ${rotulo}...`, Math.round(m.progress * 100));
+                        }
                     }
-                }
-            });
+                }),
+                120000,
+                'O motor de OCR demorou demais para iniciar (120s). Verifique a internet e tente de novo.'
+            );
+            debugLog('Worker do OCR pronto', 'ok');
             return ocrWorker;
         }
 
@@ -971,21 +1201,49 @@
 
         async function processarImagem() {
             if (!imagemAtual) { alert('Envie a imagem do comprovante primeiro.'); return; }
+            debugLog('=== OCR INICIADO ===', 'info');
+
             const btn = document.getElementById('btn-processar');
             btn.disabled = true;
             try {
+                // Se o celular está offline, avisa já (OCR precisa baixar recursos)
+                if (!navigator.onLine) {
+                    throw new Error('Você está SEM internet. O OCR precisa de conexão para funcionar.');
+                }
+
                 const worker = await obterWorkerOCR();
                 const imgFinal = await redimensionarImagem(imagemAtual);
-                const { data } = await worker.recognize(imgFinal);
-                console.log('=== TEXTO LIDO PELO OCR ===\n' + data.text);
+                debugLog(`Imagem preparada p/ OCR: ~${Math.round(imgFinal.length / 1024)} KB`, 'info');
 
-                const extraidos = extrairDadosComprovante(data.text);
+                const resultado = await comTimeout(
+                    worker.recognize(imgFinal),
+                    120000,
+                    'O OCR demorou demais (120s). Tente novamente ou use o teste 🧪 do diagnóstico.'
+                );
+                const data = resultado.data;
+
+                ultimoTextoOCR = data.text || '';
+                document.getElementById('debug-ocr-texto').innerText = ultimoTextoOCR || '(texto vazio!)';
+                debugLog(`OCR concluído: ${ultimoTextoOCR.length} caracteres lidos`, ultimoTextoOCR.length > 20 ? 'ok' : 'warn');
+
+                if (ultimoTextoOCR.trim().length < 10) {
+                    debugLog('OCR leu texto insuficiente — imagem pode estar borrada/cortada', 'warn');
+                    alert('⚠️ O OCR não conseguiu ler nada útil nesta imagem.\n\nDicas:\n• Tire o print com a tela do comprovante bem visível\n• Verifique se a imagem não está muito escura/borrada\n• Veja o texto lido no painel 🐞 de diagnóstico');
+                }
+
+                const extraidos = extrairDadosComprovante(ultimoTextoOCR);
+                debugLog(`Extração → data=${extraidos.data || 'NÃO DETECTADA'} | hora=${extraidos.hora || 'NÃO DETECTADA'} | id=${extraidos.identificacao ? 'sim (' + extraidos.identificacao.length + ' car.)' : 'não'}`, 'info');
+
                 await preencherFormularioImportacao(extraidos);
+
+                // NOVO: rola a tela até o Passo 2 (no celular ele fica fora da vista!)
+                document.getElementById('passo-dados').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
                 atualizarStatusOCR('✅ Leitura concluída! Confira os campos no Passo 2 abaixo.', null);
             } catch (err) {
-                console.error('Erro no OCR:', err);
+                debugLog(`OCR FALHOU: ${err.message}`, 'erro');
                 atualizarStatusOCR('❌ Erro ao ler a imagem: ' + err.message, null);
-                alert('Não foi possível ler a imagem: ' + err.message);
+                alert('Não foi possível ler a imagem: ' + err.message + '\n\nAbra o 🐞 diagnóstico para detalhes e testes.');
             } finally {
                 btn.disabled = false;
             }
@@ -1015,21 +1273,26 @@
             if (!imagemAtual) return { ok: false, motivo: 'Nenhuma imagem carregada.' };
 
             let dataURL = await comprimirImagem(imagemAtual, 1000, 0.75);
+            debugLog(`Imagem comprimida p/ envio: ~${Math.round(dataURL.length / 1024)} KB`, 'info');
 
             if (storagePontos) {
                 try {
                     const caminho = `comprovantes/${dataStr}/${Date.now()}.jpg`;
                     const ref = storagePontos.ref().child(caminho);
-                    const snapshot = await ref.putString(dataURL, 'data_url');
+                    const snapshot = await comTimeout(ref.putString(dataURL, 'data_url'), 60000, 'Upload no Storage demorou (60s)');
                     const url = await snapshot.ref.getDownloadURL();
+                    debugLog(`Imagem salva no Storage: ${caminho}`, 'ok');
                     return { ok: true, storage: true, url: url, path: caminho };
                 } catch (e) {
-                    console.warn('Storage indisponível — ativando fallback no Firestore:', e);
+                    debugLog(`Storage falhou (${e.code || ''} ${e.message}) — usando fallback Firestore`, 'warn');
                 }
+            } else {
+                debugLog('Storage indisponível — usando fallback Firestore diretamente', 'warn');
             }
 
             if (dataURL.length > 900000) {
                 dataURL = await comprimirImagem(imagemAtual, 700, 0.55);
+                debugLog(`Recomprimida p/ caber no Firestore: ~${Math.round(dataURL.length / 1024)} KB`, 'info');
             }
             if (dataURL.length > 950000) {
                 return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
@@ -1043,6 +1306,7 @@
                 identificacao: identificacao || null,
                 criadoEm: Date.now()
             });
+            debugLog(`Imagem salva no Firestore (doc ${docComp.id})`, 'ok');
             return docComp.id;
         }
 
@@ -1059,7 +1323,7 @@
                     await batch.commit();
                 }
             } catch (e) {
-                console.warn('Não foi possível limpar a imagem do comprovante:', e);
+                debugLog(`Aviso: não foi possível limpar imagem do dia ${idData}: ${e.message}`, 'warn');
             }
         }
 
@@ -1073,7 +1337,7 @@
                     const doc = await colecaoPontos.doc(dataStr).collection('comprovantes').doc(info.id).get();
                     url = doc.exists ? doc.data().base64 : null;
                 } catch (e) {
-                    console.error('Erro ao buscar comprovante:', e);
+                    debugLog(`Erro ao buscar comprovante de ${dataStr}: ${e.message}`, 'erro');
                 }
             }
             if (!url) {
@@ -1211,6 +1475,7 @@
                 if (!d.saida) return 'Saída';
                 return null;
             } catch (e) {
+                debugLog(`Erro ao consultar dia ${dataStr} p/ sugestão: ${e.message}`, 'warn');
                 return 'Entrada';
             }
         }
@@ -1220,8 +1485,21 @@
             document.getElementById('import-data').value = d.data || '';
             document.getElementById('import-hora').value = d.hora || '';
             document.getElementById('import-identificacao').value = d.identificacao || '';
+            debugLog(`Campos preenchidos → data="${d.data || ''}" hora="${d.hora || ''}"`, 'info');
 
-            // Aviso quando a data importada está fora da janela do banco
+            // NOVO: alerta bem visível quando faltar dado essencial
+            const faltando = [];
+            if (!d.data) faltando.push('Data');
+            if (!d.hora) faltando.push('Horário');
+            const alertaEl = document.getElementById('alerta-campos-vazios');
+            if (faltando.length > 0) {
+                document.getElementById('alerta-campos-lista').innerText = faltando.join(' e ');
+                alertaEl.classList.remove('hidden');
+                debugLog(`Alerta exibido: campos não detectados → ${faltando.join(', ')}`, 'warn');
+            } else {
+                alertaEl.classList.add('hidden');
+            }
+
             let avisoFora = '';
             if (d.data && !dentroPeriodoBanco(d.data)) {
                 avisoFora = `<br>🚫 <strong>Atenção:</strong> esta data está FORA do período do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}). O ponto será salvo no histórico, mas não contará para a meta de 24h.`;
@@ -1255,6 +1533,7 @@
                 tipoSugerido = 'Entrada';
             }
             document.getElementById('import-tipo').value = tipoSugerido;
+            debugLog(`Tipo de ponto sugerido: ${tipoSugerido}`, 'info');
 
             if (diaCompleto) {
                 document.getElementById('info-comprovante').innerHTML +=
@@ -1289,8 +1568,11 @@
         }
 
         async function confirmarImportacao() {
+            debugLog('=== CONFIRMAÇÃO DA IMPORTAÇÃO INICIADA ===', 'info');
+
             if (!colecaoPontos) {
-                alert('Erro: O sistema não está conectado ao Firebase.');
+                debugLog('Confirmação bloqueada: Firestore não inicializado', 'erro');
+                alert('Erro: O sistema não está conectado ao Firebase.\nVerifique a internet e recarregue a página.');
                 return;
             }
 
@@ -1303,8 +1585,17 @@
             const identificacao = document.getElementById('import-identificacao').value.trim();
             const salvarImagem = document.getElementById('import-salvar-imagem').checked;
 
+            debugLog(`Dados lidos dos campos → data="${dataStr}" hora="${horaStr}" tipo="${tipo}"`, 'info');
+
             if (!dataStr || !horaStr) {
-                alert('Data e horário são obrigatórios. Preencha/corrija os campos antes de confirmar.');
+                debugLog(`Confirmação BLOQUEADA: campos vazios (data=${!!dataStr}, hora=${!!horaStr})`, 'erro');
+                alert('Data e horário são obrigatórios!\n\nO OCR não detectou um ou ambos — preencha manualmente nos campos do Passo 2 e tente novamente.');
+                return;
+            }
+
+            if (!navigator.onLine) {
+                debugLog('Confirmação bloqueada: dispositivo offline', 'erro');
+                alert('Você está sem internet. Reconecte e tente novamente.');
                 return;
             }
 
@@ -1316,23 +1607,29 @@
             }[tipo];
 
             try {
-                const snap = await colecaoPontos.doc(dataStr).get();
+                debugLog('Consultando dia existente no Firestore...', 'info');
+                const snap = await comTimeout(colecaoPontos.doc(dataStr).get(), 20000, 'Consulta ao banco demorou (20s)');
 
                 if (snap.exists) {
                     const d = snap.data();
+                    debugLog(`Dia existente: ${JSON.stringify({ entrada: d.entrada, almocoSaida: d.almocoSaida, almocoRetorno: d.almocoRetorno, saida: d.saida })}`, 'info');
 
                     if (identificacao && d.identificacao && d.identificacao === identificacao) {
+                        debugLog('Bloqueado: comprovante duplicado (mesma identificação)', 'warn');
                         alert('⚠️ Este comprovante já foi importado anteriormente (mesma Identificação de Marcação).\nImportação cancelada para evitar duplicidade.');
                         return;
                     }
                     if (d[campoTipo] === horaStr) {
+                        debugLog(`Bloqueado: ${tipo} já existe com o mesmo horário`, 'warn');
                         alert(`⚠️ O dia ${formatarDataBR(dataStr)} já possui "${tipo}" registrado às ${horaStr}.\nImportação cancelada para evitar duplicidade.`);
                         return;
                     }
                     if (d[campoTipo]) {
                         const ok = confirm(`O dia ${formatarDataBR(dataStr)} já possui "${tipo}" às ${d[campoTipo]}.\n\nDeseja substituir por ${horaStr}?`);
-                        if (!ok) return;
+                        if (!ok) { debugLog('Usuário cancelou a substituição', 'info'); return; }
                     }
+                } else {
+                    debugLog('Dia novo (sem registro anterior)', 'info');
                 }
 
                 let extras = { identificacao: identificacao, origem: 'comprovante' };
@@ -1340,6 +1637,7 @@
                 if (salvarImagem && imagemAtual) {
                     btn.disabled = true;
                     btn.innerText = '⏳ Salvando comprovante...';
+                    debugLog('Enviando imagem do comprovante...', 'info');
                     const resultado = await enviarImagemComprovante(dataStr);
                     btn.disabled = false;
                     btn.innerText = textoOriginal;
@@ -1351,7 +1649,7 @@
                         try {
                             extras.comprovanteId = await salvarImagemFirestore(dataStr, resultado.base64, identificacao);
                         } catch (e) {
-                            console.error('Erro ao salvar imagem no Firestore:', e);
+                            debugLog(`Falha ao salvar imagem no Firestore: ${e.message}`, 'erro');
                             const ok = confirm('A imagem não pôde ser salva no banco.\nDeseja registrar o ponto mesmo assim (sem imagem)?');
                             if (!ok) return;
                         }
@@ -1362,11 +1660,14 @@
                 }
 
                 await salvarNoFirebase(dataStr, horaStr, tipo, justificativa, extras);
+                debugLog('=== IMPORTAÇÃO CONCLUÍDA COM SUCESSO ===', 'ok');
 
                 limparImportacao();
 
             } catch (err) {
-                console.error('Erro na importação:', err);
+                // CORRIGIDO: antes este erro era engolido (só console.error) — agora aparece!
+                debugLog(`IMPORTAÇÃO FALHOU: ${err.code || ''} ${err.message}`, 'erro');
+                alert('❌ Falha ao concluir a importação.\n\nCódigo: ' + (err.code || 'desconhecido') + '\nDetalhe: ' + err.message + '\n\nAbra o 🐞 diagnóstico e use "Testar banco" para verificar a conexão.');
                 btn.disabled = false;
                 btn.innerText = textoOriginal;
             }
@@ -1396,7 +1697,6 @@
             if (bancoTotalAtual > 0) corBanco = '#047857';
             else if (bancoTotalAtual < 0) corBanco = '#b91c1c';
 
-            // Dados da meta com período e média necessária (referência fixa 01/10 → 11/12)
             const infoMeta = calcularInfoMeta(bancoTotalAtual);
             const metaAtingidaPDF = bancoTotalAtual >= META_FOLGA_NATAL_MIN;
 
@@ -1408,7 +1708,6 @@
             } else {
                 let textoBase = `🎅 <strong>Meta Folga de Natal — 24h (01/10 a 11/12/2026):</strong> faltam ${formatarMinutos(infoMeta.falta)} • média necessária: +${formatarMinutos(infoMeta.mediaNecessaria)}/dia útil (referência: ${infoMeta.diasUteisPeriodo} dias úteis do período)`;
 
-                // Previsão por ritmo, se houver histórico suficiente no período
                 if (ritmoAtualMinDia !== null && ritmoAtualMinDia > 0) {
                     const diasParaMeta = Math.ceil(infoMeta.falta / ritmoAtualMinDia);
                     const refEhUtil = (new Date(infoMeta.refStr + 'T00:00:00')).getDay() % 6 !== 0;
@@ -1503,10 +1802,20 @@
         }
 
         window.onload = function() {
+            debugLog('Sistema carregado', 'ok');
+            if (typeof Tesseract === 'undefined') {
+                debugLog('Tesseract.js NÃO carregou — OCR indisponível (verifique internet/bloqueador)', 'erro');
+            }
+            if (!colecaoPontos) {
+                debugLog('Firestore não inicializado no carregamento', 'erro');
+            }
+            if (!navigator.onLine) {
+                debugLog('Dispositivo está OFFLINE', 'erro');
+            }
+
             if (colecaoPontos) {
                 carregarHistorico();
             }
-            // ALTERADO: a tela inicial é SEMPRE a aba de importação (mobile e desktop)
             mostrarAba('importar');
         };
     </script>
