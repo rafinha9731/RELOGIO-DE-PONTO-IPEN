@@ -160,7 +160,7 @@
             </div>
         </div>
 
-        <!-- ===================== ABA 2: IMPORTAR COMPROVANTE (tela inicial) ===================== -->
+        <!-- ===================== ABA 2: IMPORTAR COMPROVANTES (tela inicial, com lote) ===================== -->
         <div id="aba-importar" class="space-y-6">
 
             <!-- DEBUG: faixa de diagnóstico rápido -->
@@ -169,115 +169,73 @@
                 <button onclick="abrirDebug()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap">🐞 Ver diagnóstico</button>
             </div>
 
-            <!-- PASSO 1: ENVIO DA IMAGEM (OCR automático) -->
+            <!-- PASSO 1: ENVIO (MÚLTIPLO) COM OCR AUTOMÁTICO -->
             <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
-                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">📸 Passo 1 — Enviar o print (leitura automática)</h3>
+                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">📸 Passo 1 — Enviar os prints (leitura automática, um ou vários)</h3>
 
                 <div id="dropzone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition" onclick="document.getElementById('input-imagem').click()">
                     <div class="text-4xl mb-2">🖼️</div>
                     <p class="text-sm font-semibold text-gray-600">
-                        Clique, arraste ou cole (Ctrl+V) o print do comprovante
+                        Clique, arraste ou cole (Ctrl+V) os prints — <strong>pode ser mais de um de uma vez</strong>
                     </p>
-                    <p class="text-xs text-gray-400 mt-1">Print da tela "Comprovante de marcação" (app Senior) — a leitura dos dados é automática</p>
+                    <p class="text-xs text-gray-400 mt-1">Prints da tela "Comprovante de marcação" (app Senior) — a leitura é automática e em fila</p>
                 </div>
-                <input type="file" id="input-imagem" accept="image/*" class="hidden" onchange="receberArquivo(this.files); this.value = '';">
+                <input type="file" id="input-imagem" accept="image/*" multiple class="hidden" onchange="receberArquivosLote(this.files); this.value = '';">
 
-                <div id="preview-container" class="hidden">
-                    <div class="flex flex-col sm:flex-row gap-4 items-start">
-                        <img id="preview-imagem" class="max-h-64 rounded-lg border border-gray-200 shadow-sm mx-auto sm:mx-0" alt="Prévia do comprovante">
-                        <div class="flex-1 w-full space-y-3">
-                            <div id="status-ocr" class="hidden text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg p-3"></div>
-                            <div id="barra-progresso-container" class="hidden h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div id="barra-progresso" class="h-full bg-blue-600 transition-all duration-200" style="width: 0%"></div>
-                            </div>
-                            <!-- ALTERADO: botão de leitura removido (OCR é automático). Fica só o "Tentar novamente" (aparece em falha) -->
-                            <div class="flex flex-wrap gap-2">
-                                <button id="btn-retry-ocr" onclick="processarImagem()" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition shadow-sm">
-                                    🔄 Tentar leitura novamente
-                                </button>
-                                <button onclick="limparImportacao()" class="bg-white hover:bg-gray-100 border border-gray-300 text-gray-600 font-bold text-sm px-4 py-2 rounded-lg transition">
-                                    Limpar
-                                </button>
-                            </div>
-                        </div>
+                <div id="status-ocr-geral" class="hidden text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <span id="status-ocr-geral-texto">⏳ Lendo comprovantes...</span>
+                        <span id="status-ocr-geral-cont" class="font-mono font-bold text-purple-600">0/0</span>
+                    </div>
+                    <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div id="status-ocr-geral-barra" class="h-full bg-purple-600 transition-all duration-200" style="width:0%"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- PASSO 2: CONFERÊNCIA DOS DADOS -->
-            <div id="passo-dados" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
-                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">✅ Passo 2 — Conferir e confirmar a importação</h3>
-
-                <div id="alerta-campos-vazios" class="hidden text-xs font-bold text-amber-800 bg-amber-100 border-2 border-amber-300 rounded-lg p-3 leading-relaxed">
-                    ⚠️ <strong>ATENÇÃO:</strong> o OCR não conseguiu preencher <span id="alerta-campos-lista">alguns campos</span>. Preencha <strong>manualmente</strong> nos campos abaixo antes de confirmar — senão a importação será bloqueada.
+            <!-- FILA DE REVISÃO -->
+            <div id="secao-fila" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                    <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">
+                        📋 Fila de comprovantes (<span id="fila-contagem">0</span>)
+                    </h3>
+                    <span id="fila-status-geral" class="text-xs font-semibold text-gray-500"></span>
                 </div>
 
-                <div id="info-comprovante" class="text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded-lg p-3 leading-relaxed"></div>
+                <div id="resumo-lote" class="hidden text-xs font-semibold rounded-lg p-3 leading-relaxed"></div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Data</label>
-                        <input type="date" id="import-data" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Horário</label>
-                        <input type="time" id="import-hora" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                    </div>
-                    <div class="sm:col-span-3">
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Tipo de Ponto (sugerido)</label>
-                        <select id="import-tipo" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                            <option value="Entrada">Entrada</option>
-                            <option value="Almoço Saída">Saída Almoço</option>
-                            <option value="Almoço Retorno">Retorno Almoço</option>
-                            <option value="Saída">Saída</option>
-                        </select>
-                    </div>
-                    <div class="sm:col-span-5">
-                        <label class="block text-xs font-semibold text-gray-500 mb-1">Justificativa / Observação</label>
-                        <input type="text" id="import-justificativa" maxlength="60" placeholder="Importado via comprovante" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm">
-                    </div>
+                <div id="lista-fila" class="space-y-3"></div>
+
+                <div id="acoes-fila" class="hidden flex flex-wrap gap-2">
+                    <button id="btn-confirmar-lote" onclick="confirmarLote()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
+                        💾 Confirmar TODOS
+                    </button>
+                    <button id="btn-limpar-fila" onclick="limparFila()" class="bg-white hover:bg-gray-100 border border-gray-300 text-gray-600 font-bold text-sm px-4 py-2.5 rounded-lg transition">
+                        🗑️ Limpar fila
+                    </button>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold text-gray-500 mb-1">Identificação da Marcação (código do comprovante — usado para bloquear importação duplicada)</label>
-                    <input type="text" id="import-identificacao" class="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs font-mono text-gray-600" placeholder="Código longo do comprovante (opcional)">
-                </div>
-
-                <label class="flex items-start gap-2.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg p-3 cursor-pointer">
-                    <input type="checkbox" id="import-salvar-imagem" checked class="mt-0.5 h-4 w-4">
-                    <span>
-                        <strong>🖼️ Salvar imagem do comprovante no Firebase</strong><br>
-                        <span class="text-gray-400">A imagem já é comprimida em segundo plano e enviada em formato binário (mais rápido). Se o Storage não estiver ativo, é salva compactada dentro do próprio Firestore (automático).</span>
-                    </span>
-                </label>
-
-                <div id="sugestoes-chips" class="flex flex-wrap items-center gap-1"></div>
-
-                <!-- NOVO: status/progresso do upload da imagem -->
-                <div id="status-upload" class="hidden text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg p-3">
+                <!-- Progresso da gravação em lote -->
+                <div id="status-gravacao" class="hidden text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg p-3">
                     <div class="flex justify-between items-center mb-1">
-                        <span id="status-upload-texto">⏳ Enviando imagem...</span>
-                        <span id="status-upload-pct" class="font-mono font-bold text-blue-600">0%</span>
+                        <span id="status-gravacao-texto">⏳ Gravando...</span>
+                        <span id="status-gravacao-cont" class="font-mono font-bold text-blue-600">0/0</span>
                     </div>
                     <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div id="status-upload-barra" class="h-full bg-blue-600 transition-all duration-200" style="width:0%"></div>
+                        <div id="status-gravacao-barra" class="h-full bg-blue-600 transition-all duration-200" style="width:0%"></div>
                     </div>
                 </div>
-
-                <button id="btn-confirmar-import" onclick="confirmarImportacao()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
-                    💾 Confirmar Importação
-                </button>
             </div>
         </div>
 
     </div>
 
-    <!-- ===================== MODAL: VISUALIZAR COMPROVANTE ===================== -->
-    <div id="modal-comprovante" class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="if(event.target === this) fecharModalComprovante()">
+    <!-- ===================== MODAL: VISUALIZAR IMAGEM ===================== -->
+    <div id="modal-comprovante" class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="if(event.target === this) fecharModalImagem()">
         <div class="bg-white rounded-xl p-4 max-w-lg w-full max-h-[90vh] overflow-auto shadow-xl">
             <div class="flex justify-between items-center mb-3">
                 <h3 id="modal-titulo" class="text-sm font-bold text-gray-800">Comprovante</h3>
-                <button onclick="fecharModalComprovante()" class="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">✕</button>
+                <button onclick="fecharModalImagem()" class="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">✕</button>
             </div>
             <img id="modal-img" class="w-full rounded-lg border border-gray-100" alt="Comprovante de marcação">
         </div>
@@ -381,8 +339,7 @@
                 ['Firestore (banco de dados)', colecaoPontos ? '✅ conectado' : '❌ não inicializado'],
                 ['Firebase Storage (imagens)', storagePontos ? '✅ disponível' : '⚠️ indisponível (usa fallback no Firestore)'],
                 ['Conexão de rede', navigator.onLine ? '✅ online' : '❌ OFFLINE'],
-                ['Imagem carregada', imagemAtual ? `✅ ~${Math.round(imagemAtual.length / 1024)} KB` : '— nenhuma'],
-                ['Blob p/ upload pronto', blobUploadPronto ? `✅ ~${Math.round(blobUploadPronto.size / 1024)} KB (pré-comprimido)` : '— ainda preparando'],
+                ['Fila de comprovantes', `${filaImportacao.length} item(ns) — ${filaImportacao.filter(i => i.status === 'lido').length} lido(s), ${filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length} pendente(s)`],
                 ['Meta / Período', `${META_FOLGA_NATAL_MIN / 60}h • ${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}`],
                 ['Navegador', navigator.userAgent.substring(0, 90) + '...'],
                 ['Tela', `${window.innerWidth}×${window.innerHeight}px`]
@@ -674,9 +631,8 @@
             document.getElementById('manual-justificativa').value = '';
         }
 
-        function salvarNoFirebase(data, hora, tipo, justificativa, extras = {}) {
-            debugLog(`Salvando no Firestore: ${data} | ${tipo}=${hora} | extras=${JSON.stringify(Object.keys(extras))}`, 'info');
-
+        // Gravação "muda" (sem alert/sem recarga) — usada pelo lote
+        async function gravarPontoFirestore(data, hora, tipo, justificativa, extras = {}) {
             const docRef = colecaoPontos.doc(data);
             let dadosPonto = { data: data };
 
@@ -688,9 +644,16 @@
             if (justificativa) dadosPonto.justificativa = justificativa;
             Object.assign(dadosPonto, extras);
 
-            return docRef.set(dadosPonto, { merge: true })
+            await docRef.set(dadosPonto, { merge: true });
+            debugLog(`Firestore: ponto salvo (${data}/${tipo}=${hora})`, 'ok');
+        }
+
+        // Gravação com alert + recarga do histórico (usada pelos botões de bater ponto)
+        function salvarNoFirebase(data, hora, tipo, justificativa, extras = {}) {
+            debugLog(`Salvando no Firestore: ${data} | ${tipo}=${hora}`, 'info');
+
+            return gravarPontoFirestore(data, hora, tipo, justificativa, extras)
                 .then(() => {
-                    debugLog(`Firestore: ponto salvo com sucesso (${data}/${tipo})`, 'ok');
                     alert(`Sucesso! Ponto de ${tipo} registrado às ${hora} no dia ${formatarDataBR(data)}.`);
                     carregarHistorico();
                 })
@@ -765,7 +728,7 @@
                         indiceComprovantes[dataDocStr] = { url: dia.comprovanteUrl || null, id: dia.comprovanteId || null };
                     }
                     const btnVerImagem = temImagem
-                        ? `<button onclick="verComprovante('${dataDocStr}')" title="Ver imagem do comprovante" class="text-blue-500 hover:text-blue-700 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition mr-1">🖼️ Ver</button>`
+                        ? `<button onclick="verComprovanteHistorico('${dataDocStr}')" title="Ver imagem do comprovante" class="text-blue-500 hover:text-blue-700 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition mr-1">🖼️ Ver</button>`
                         : '';
 
                     const notaFora = noPeriodo ? '' : ' • FORA DO PERÍODO DO BANCO (não computa p/ meta)';
@@ -1040,31 +1003,30 @@
         }
 
         // =========================================================================
-        // 5. IMPORTAÇÃO DE COMPROVANTE — OCR AUTOMÁTICO + UPLOAD OTIMIZADO
+        // 5. IMPORTAÇÃO EM LOTE DE COMPROVANTES (OCR AUTOMÁTICO EM FILA)
         // =========================================================================
-        let imagemAtual = null;
+        let filaImportacao = [];      // itens: { id, dataURL, thumb, status, extraidos, selecoes, blob, erro, ... }
+        let processandoFilaOCR = false;
+        let gravandoLote = false;
+        let estadoSimulado = {};      // dataStr -> { entrada, almocoSaida, almocoRetorno, saida } (banco + reservas da fila)
+        let contadorItensFila = 0;
         let ocrWorker = null;
         let indiceComprovantes = {};
-        let blobUploadPronto = null;  // NOVO: imagem pré-comprimida (Blob) pronta para envio
-        let pipelineId = 0;           // NOVO: controla corridas (imagem nova cancela pipeline anterior)
 
-        function receberArquivo(files) {
-            if (!files || files.length === 0) return;
-            const file = files[0];
-            debugLog(`Arquivo recebido: tipo=${file.type || '?'} | ~${Math.round(file.size / 1024)} KB | nome=${(file.name || 'print').substring(0, 40)}`, 'info');
+        const MAPA_TIPO_CAMPO = {
+            'Entrada': 'entrada',
+            'Almoço Saída': 'almocoSaida',
+            'Almoço Retorno': 'almocoRetorno',
+            'Saída': 'saida'
+        };
 
-            if (!file.type.startsWith('image/')) {
-                debugLog(`Arquivo rejeitado: tipo "${file.type}" não é imagem`, 'erro');
-                alert("Envie um arquivo de imagem (print do comprovante).\nTipo recebido: " + (file.type || 'desconhecido'));
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = (e) => definirImagem(e.target.result);
-            reader.onerror = () => {
-                debugLog('Falha ao ler o arquivo (FileReader)', 'erro');
-                alert('Não foi possível ler o arquivo. Tente novamente.');
-            };
-            reader.readAsDataURL(file);
+        function lerArquivoComoDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = () => reject(new Error('falha ao ler o arquivo'));
+                reader.readAsDataURL(file);
+            });
         }
 
         function testarDecodificacao(dataURL) {
@@ -1076,115 +1038,810 @@
             });
         }
 
-        // ALTERADO: ao receber a imagem, dispara automaticamente o pipeline:
-        // OCR (para preencher os campos) + pré-compressão (para o upload) em paralelo.
-        async function definirImagem(dataURL) {
-            const meuPipeline = ++pipelineId;
-            blobUploadPronto = null;
-            debugLog(`Imagem em memória: ~${Math.round(dataURL.length / 1024)} KB (base64)`, 'info');
+        // Miniatura leve para a UI (evita dezenas de imagens grandes na memória do DOM)
+        function gerarThumb(dataURL, maxLado = 160) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * escala);
+                    canvas.height = Math.round(img.height * escala);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.onerror = () => resolve(dataURL);
+                img.src = dataURL;
+            });
+        }
 
-            const teste = await testarDecodificacao(dataURL);
-            if (!teste.ok) {
-                debugLog('Navegador NÃO conseguiu decodificar a imagem (formato possivelmente HEIC)', 'erro');
-                alert('❌ Seu navegador não conseguiu abrir esta imagem.\n\nIsso acontece com fotos em formato HEIC (iPhone) ou arquivos corrompidos.\n\nSolução: tire um NOVO print da tela (prints são PNG/JPEG e funcionam) em vez de escolher a foto da galeria.');
+        // ENTRADA DO LOTE: arquivos do input/drag/colagem
+        async function receberArquivosLote(files) {
+            if (!files || files.length === 0) return;
+            const lista = Array.from(files).filter(f => f.type && f.type.startsWith('image/'));
+
+            if (lista.length === 0) {
+                alert("Nenhuma imagem válida foi recebida.\nEnvie prints (PNG/JPG) do comprovante.");
                 return;
             }
-            debugLog(`Imagem decodificada OK: ${teste.w}×${teste.h}px`, 'ok');
+            if (lista.length !== files.length) {
+                debugLog(`${files.length - lista.length} arquivo(s) ignorado(s) por não serem imagem`, 'warn');
+            }
 
-            imagemAtual = dataURL;
-            document.getElementById('preview-imagem').src = dataURL;
-            document.getElementById('preview-container').classList.remove('hidden');
-            document.getElementById('btn-retry-ocr').classList.add('hidden');
-            document.getElementById('status-ocr').classList.add('hidden');
-            document.getElementById('barra-progresso-container').classList.add('hidden');
-            document.getElementById('passo-dados').classList.add('hidden');
-            document.getElementById('status-upload').classList.add('hidden');
+            debugLog(`Recebidos ${lista.length} arquivo(s) para a fila`, 'info');
+            if (lista.length > 8) {
+                alert(`ℹ️ Você adicionou ${lista.length} prints. O processamento é um por vez (para não travar o celular) — pode levar alguns minutos.`);
+            }
 
-            // OTIMIZAÇÃO: pré-compressão roda em paralelo ao OCR (CPU vs rede).
-            // Quando o usuário confirmar, o arquivo já estará pronto — só falta o envio.
-            prepararBlobUpload(meuPipeline);
+            let adicionados = 0, rejeitados = 0;
+            for (const file of lista) {
+                try {
+                    const dataURL = await lerArquivoComoDataURL(file);
+                    const teste = await testarDecodificacao(dataURL);
+                    const id = `fila_${Date.now()}_${contadorItensFila++}`;
 
-            // OCR AUTOMÁTICO (sem botão)
-            processarImagem();
+                    if (!teste.ok) {
+                        filaImportacao.push({
+                            id, dataURL, thumb: '', status: 'falhou',
+                            erro: 'Formato não suportado pelo navegador (possível HEIC do iPhone — tire um print da tela em vez de usar a foto da galeria).',
+                            selecoes: { data: '', hora: '', tipo: 'Entrada', justificativa: '' }
+                        });
+                        rejeitados++;
+                        debugLog(`Arquivo rejeitado (não decodificou): ${(file.name || 'print').substring(0, 40)}`, 'erro');
+                        continue;
+                    }
+
+                    const thumb = await gerarThumb(dataURL);
+                    filaImportacao.push({
+                        id, dataURL, thumb,
+                        status: 'aguardando', erro: null,
+                        extraidos: null, blob: null,
+                        tipoSugerido: null, diaCompleto: false, campoReservado: null,
+                        selecoes: { data: '', hora: '', tipo: 'Entrada', justificativa: '' }
+                    });
+                    adicionados++;
+                    debugLog(`Item adicionado à fila: ${id} (${teste.w}×${teste.h}px, ~${Math.round(dataURL.length / 1024)} KB)`, 'ok');
+                } catch (e) {
+                    rejeitados++;
+                    debugLog(`Erro ao preparar arquivo: ${e.message}`, 'erro');
+                }
+            }
+
+            if (adicionados === 0 && rejeitados > 0) {
+                alert('❌ Nenhuma das imagens pôde ser aberta pelo navegador.\n\nSe você usou fotos da galeria do iPhone (formato HEIC), tire um PRINT da tela e importe o print.');
+            }
+
+            renderizarFila();
+            processarFilaOCR(); // dispara a leitura sequencial (fire-and-forget)
         }
 
-        function limparImportacao() {
-            pipelineId++; // invalida pipelines em andamento
-            imagemAtual = null;
-            blobUploadPronto = null;
-            document.getElementById('input-imagem').value = '';
-            document.getElementById('preview-container').classList.add('hidden');
-            document.getElementById('preview-imagem').src = '';
-            document.getElementById('status-ocr').classList.add('hidden');
-            document.getElementById('barra-progresso-container').classList.add('hidden');
-            document.getElementById('passo-dados').classList.add('hidden');
-            document.getElementById('btn-retry-ocr').classList.add('hidden');
-            document.getElementById('status-upload').classList.add('hidden');
-            ['import-data', 'import-hora', 'import-justificativa', 'import-identificacao'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
-            document.getElementById('import-tipo').value = 'Entrada';
-            document.getElementById('sugestoes-chips').innerHTML = '';
-            document.getElementById('alerta-campos-vazios').classList.add('hidden');
-            debugLog('Importação limpa', 'info');
-        }
-
+        // Drag & drop e Ctrl+V (agora múltiplos)
         const dz = document.getElementById('dropzone');
         dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('border-blue-400', 'bg-blue-50'); });
         dz.addEventListener('dragleave', () => { dz.classList.remove('border-blue-400', 'bg-blue-50'); });
         dz.addEventListener('drop', (e) => {
             e.preventDefault();
             dz.classList.remove('border-blue-400', 'bg-blue-50');
-            debugLog('Imagem solta via drag-and-drop', 'info');
-            receberArquivo(e.dataTransfer.files);
+            debugLog('Arquivos soltos via drag-and-drop', 'info');
+            receberArquivosLote(e.dataTransfer.files);
         });
 
         document.addEventListener('paste', (e) => {
             if (document.getElementById('aba-importar').classList.contains('hidden')) return;
             const items = e.clipboardData && e.clipboardData.items;
             if (!items) return;
+            const imagens = [];
             for (const item of items) {
                 if (item.type && item.type.startsWith('image/')) {
-                    debugLog('Imagem colada via Ctrl+V', 'info');
                     const file = item.getAsFile();
-                    if (file) { receberArquivo([file]); break; }
+                    if (file) imagens.push(file);
                 }
+            }
+            if (imagens.length > 0) {
+                debugLog(`${imagens.length} imagem(ns) colada(s) via Ctrl+V`, 'info');
+                receberArquivosLote(imagens);
             }
         });
 
-        function atualizarStatusOCR(mensagem, progresso = null) {
-            const el = document.getElementById('status-ocr');
-            const barraContainer = document.getElementById('barra-progresso-container');
-            const barra = document.getElementById('barra-progresso');
-            el.classList.remove('hidden');
-            el.innerText = mensagem;
-            if (progresso === null) {
-                barraContainer.classList.add('hidden');
-            } else {
-                barraContainer.classList.remove('hidden');
-                barra.style.width = Math.max(2, Math.min(100, progresso)) + '%';
+        // ---- Fila OCR: processa um item por vez (estável no celular) ----
+        async function processarFilaOCR() {
+            if (processandoFilaOCR) return;
+            processandoFilaOCR = true;
+
+            try {
+                if (!navigator.onLine) {
+                    throw new Error('Você está SEM internet. O OCR precisa de conexão.');
+                }
+                const worker = await obterWorkerOCR();
+
+                // Loop dinâmico: novos itens adicionados durante o processamento também entram
+                while (true) {
+                    const item = filaImportacao.find(i => i.status === 'aguardando');
+                    if (!item) break;
+
+                    const totalRestante = filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length;
+                    const totalFila = filaImportacao.length;
+                    atualizarStatusOCRGeral(`⏳ Lendo comprovante...`, totalFila - totalRestante + 1, totalFila);
+
+                    item.status = 'lendo';
+                    atualizarCardItem(item.id);
+
+                    try {
+                        const imgFinal = await redimensionarImagem(item.dataURL);
+                        const resultado = await comTimeout(
+                            worker.recognize(imgFinal),
+                            120000,
+                            'O OCR demorou demais (120s) neste item.'
+                        );
+
+                        ultimoTextoOCR = resultado.data.text || '';
+                        document.getElementById('debug-ocr-texto').innerText = ultimoTextoOCR || '(texto vazio!)';
+                        debugLog(`OCR ${item.id}: ${ultimoTextoOCR.length} caracteres lidos`, ultimoTextoOCR.length > 20 ? 'ok' : 'warn');
+
+                        if (ultimoTextoOCR.trim().length < 10) {
+                            item.status = 'falhou';
+                            item.erro = 'O OCR não conseguiu ler texto útil nesta imagem (possível print borrado, escuro ou cortado).';
+                            debugLog(`OCR ${item.id}: texto insuficiente`, 'warn');
+                        } else {
+                            item.extraidos = extrairDadosComprovante(ultimoTextoOCR);
+                            debugLog(`Extração ${item.id} → data=${item.extraidos.data || 'NÃO DETECTADA'} | hora=${item.extraidos.hora || 'NÃO DETECTADA'}`, 'info');
+
+                            item.selecoes.data = item.extraidos.data || '';
+                            item.selecoes.hora = item.extraidos.hora || '';
+                            item.selecoes.justificativa = 'Importado via comprovante';
+
+                            await sugerirTipoParaItem(item);
+                            item.status = 'lido';
+                        }
+                    } catch (e) {
+                        item.status = 'falhou';
+                        item.erro = e.message;
+                        debugLog(`OCR ${item.id} FALHOU: ${e.message}`, 'erro');
+                    }
+
+                    atualizarCardItem(item.id);
+                }
+            } catch (e) {
+                debugLog(`Fila OCR interrompida: ${e.message}`, 'erro');
+                alert('⚠️ ' + e.message);
+                // itens que ainda estavam aguardando viram falha para não ficar eternamente pendentes
+                filaImportacao.forEach(i => {
+                    if (i.status === 'aguardando' || i.status === 'lendo') {
+                        i.status = 'falhou';
+                        i.erro = e.message;
+                        atualizarCardItem(i.id);
+                    }
+                });
+            } finally {
+                processandoFilaOCR = false;
+                atualizarStatusOCRGeral('', 0, 0, true);
+                renderizarFila();
+                prepararBlobsBackground(); // pré-compressão das imagens em 2º plano
             }
         }
 
-        function atualizarStatusUpload(texto, pct = null, cor = 'bg-blue-600') {
-            const container = document.getElementById('status-upload');
-            const textoEl = document.getElementById('status-upload-texto');
-            const pctEl = document.getElementById('status-upload-pct');
-            const barra = document.getElementById('status-upload-barra');
+        function atualizarStatusOCRGeral(texto, atual, total, esconder = false) {
+            const container = document.getElementById('status-ocr-geral');
+            const textoEl = document.getElementById('status-ocr-geral-texto');
+            const contEl = document.getElementById('status-ocr-geral-cont');
+            const barra = document.getElementById('status-ocr-geral-barra');
+            if (esconder || !texto) { container.classList.add('hidden'); return; }
             container.classList.remove('hidden');
             textoEl.innerText = texto;
-            if (pct === null) {
-                pctEl.classList.add('hidden');
-                barra.classList.add('hidden');
-            } else {
-                pctEl.classList.remove('hidden');
-                barra.classList.remove('hidden');
-                pctEl.innerText = pct + '%';
-                barra.className = `h-full ${cor} transition-all duration-200`;
-                barra.style.width = Math.max(2, Math.min(100, pct)) + '%';
+            contEl.innerText = `${atual}/${total}`;
+            const pct = total > 0 ? Math.round((atual / total) * 100) : 0;
+            barra.style.width = Math.max(2, pct) + '%';
+        }
+
+        // Sugestão de tipo considerando o banco + reservas de outros itens da mesma fila
+        async function sugerirTipoParaItem(item) {
+            const d = item.selecoes.data;
+            if (!d) { item.selecoes.tipo = 'Entrada'; return; }
+
+            if (!estadoSimulado[d]) {
+                try {
+                    const snap = await comTimeout(colecaoPontos.doc(d).get(), 15000, 'Consulta ao banco demorou (15s)');
+                    const dia = snap.exists ? snap.data() : {};
+                    estadoSimulado[d] = {
+                        entrada: dia.entrada || null,
+                        almocoSaida: dia.almocoSaida || null,
+                        almocoRetorno: dia.almocoRetorno || null,
+                        saida: dia.saida || null
+                    };
+                } catch (e) {
+                    debugLog(`Erro ao carregar estado do dia ${d}: ${e.message}`, 'warn');
+                    estadoSimulado[d] = { entrada: null, almocoSaida: null, almocoRetorno: null, saida: null };
+                }
+            }
+
+            const est = estadoSimulado[d];
+            const proximo = !est.entrada ? 'Entrada'
+                : !est.almocoSaida ? 'Almoço Saída'
+                : !est.almocoRetorno ? 'Almoço Retorno'
+                : !est.saida ? 'Saída'
+                : null;
+
+            item.tipoSugerido = proximo || 'Entrada';
+            item.diaCompleto = (proximo === null);
+            item.selecoes.tipo = item.tipoSugerido;
+            item.campoReservado = proximo ? MAPA_TIPO_CAMPO[proximo] : null;
+            if (item.campoReservado) est[item.campoReservado] = 'RESERVADO_FILA';
+        }
+
+        // Pré-compressão adaptativa (~200KB) de todos os itens lidos, em 2º plano
+        async function prepararBlobsBackground() {
+            for (const item of filaImportacao) {
+                if (item.blob || item.status !== 'lido') continue;
+                const t0 = performance.now();
+                const blob = await comprimirAdaptativo(item.dataURL);
+                if (blob) {
+                    item.blob = blob;
+                    debugLog(`Blob pronto p/ ${item.id}: ~${Math.round(blob.size / 1024)} KB em ${Math.round(performance.now() - t0)}ms`, 'ok');
+                }
             }
         }
 
+        function comprimirAdaptativo(dataURL) {
+            const tentativas = [
+                { maxLado: 900, qualidade: 0.70 },
+                { maxLado: 800, qualidade: 0.60 },
+                { maxLado: 700, qualidade: 0.50 },
+                { maxLado: 600, qualidade: 0.42 }
+            ];
+            return new Promise(async (resolve) => {
+                let melhorBlob = null;
+                for (const t of tentativas) {
+                    const blob = await comprimirParaBlob(dataURL, t.maxLado, t.qualidade);
+                    if (!blob) break;
+                    melhorBlob = blob;
+                    if (blob.size <= 200 * 1024) break;
+                }
+                resolve(melhorBlob);
+            });
+        }
+
+        function comprimirParaBlob(dataURL, maxLado, qualidade) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(img.width * escala);
+                    canvas.height = Math.round(img.height * escala);
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', qualidade);
+                };
+                img.onerror = () => resolve(null);
+                img.src = dataURL;
+            });
+        }
+
+        function blobParaDataURL(blob) {
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(blob);
+            });
+        }
+
+        // ---- Renderização da fila de revisão ----
+        function renderizarFila() {
+            const secao = document.getElementById('secao-fila');
+            const lista = document.getElementById('lista-fila');
+            const acoes = document.getElementById('acoes-fila');
+            const contagemEl = document.getElementById('fila-contagem');
+            const statusGeralEl = document.getElementById('fila-status-geral');
+            const btnConfirmar = document.getElementById('btn-confirmar-lote');
+
+            contagemEl.innerText = filaImportacao.length;
+
+            if (filaImportacao.length === 0) {
+                secao.classList.add('hidden');
+                return;
+            }
+            secao.classList.remove('hidden');
+
+            const lidos = filaImportacao.filter(i => i.status === 'lido').length;
+            const pendentes = filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length;
+
+            if (pendentes > 0) {
+                statusGeralEl.innerText = `⏳ lendo... (${pendentes} na fila)`;
+            } else if (lidos > 0) {
+                statusGeralEl.innerText = '✅ leitura concluída — confira os itens abaixo';
+            } else {
+                statusGeralEl.innerText = '❌ nenhum item lido com sucesso';
+            }
+
+            lista.innerHTML = '';
+            filaImportacao.forEach(item => lista.appendChild(criarCardItem(item)));
+
+            // Botão de confirmar: mostra quantidade e fica desabilitado se não houver itens prontos
+            if (lidos > 0 && !gravandoLote) {
+                acoes.classList.remove('hidden');
+                btnConfirmar.innerText = `💾 Confirmar TODOS (${lidos})`;
+                btnConfirmar.disabled = false;
+            } else if (gravandoLote) {
+                acoes.classList.remove('hidden');
+                btnConfirmar.disabled = true;
+            } else {
+                acoes.classList.add('hidden');
+            }
+        }
+
+        function criarCardItem(item) {
+            const card = document.createElement('div');
+            card.id = `card-${item.id}`;
+            card.className = 'bg-white border rounded-xl p-3 flex flex-col sm:flex-row gap-3';
+
+            let conteudo = '';
+
+            // Miniatura
+            if (item.thumb) {
+                conteudo += `<img src="${item.thumb}" class="w-20 h-28 object-cover rounded-lg border border-gray-200 cursor-pointer shrink-0" alt="Print ${item.id}" onclick="visualizarImagemFila('${item.id}')">`;
+            } else {
+                conteudo += `<div class="w-20 h-28 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center text-2xl shrink-0">🖼️</div>`;
+            }
+
+            // Corpo conforme status
+            if (item.status === 'aguardando') {
+                conteudo += `
+                    <div class="flex-1 flex items-center">
+                        <span class="text-xs text-gray-400 animate-pulse">⏳ na fila para leitura...</span>
+                    </div>`;
+            } else if (item.status === 'lendo') {
+                conteudo += `
+                    <div class="flex-1 flex items-center">
+                        <span class="text-xs text-purple-600 font-semibold animate-pulse">🔎 lendo o comprovante (OCR)...</span>
+                    </div>`;
+            } else if (item.status === 'falhou') {
+                conteudo += `
+                    <div class="flex-1 space-y-2">
+                        <div class="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5">
+                            ❌ ${item.erro || 'Falha desconhecida'}
+                        </div>
+                        <div class="text-[10px] text-gray-400 font-mono truncate">ID: ${item.id}</div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="reprocessarItem('${item.id}')" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg">🔄 Tentar de novo</button>
+                        </div>
+                    </div>`;
+            } else if (item.status === 'lido') {
+                const d = item.extraidos || {};
+                const idD = `fd-${item.id}`, idH = `fh-${item.id}`, idT = `ft-${item.id}`, idJ = `fj-${item.id}`;
+
+                // Aviso de substituição (dia já tem este tipo no banco)
+                let avisoSub = '';
+                const est = estadoSimulado[item.selecoes.data];
+                const campo = MAPA_TIPO_CAMPO[item.selecoes.tipo];
+                if (est && campo && est[campo] && est[campo] !== 'RESERVADO_FILA') {
+                    avisoSub = `<div class="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-1">⚠️ Este dia já possui "${item.selecoes.tipo}" às ${est[campo]} — será SUBSTITUÍDO ao confirmar.</div>`;
+                }
+                if (item.diaCompleto) {
+                    avisoSub += `<div class="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-1">⚠️ Este dia já possui os 4 pontos no banco — a gravação substituirá um deles.</div>`;
+                }
+
+                // Aviso de data fora do período
+                let avisoFora = '';
+                if (item.selecoes.data && !dentroPeriodoBanco(item.selecoes.data)) {
+                    avisoFora = `<div class="text-[10px] font-bold text-gray-600 bg-gray-100 border border-gray-300 rounded px-2 py-1">🚫 Data FORA do período do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}) — salva no histórico, mas não computa p/ a meta.</div>`;
+                }
+
+                // Aviso de campos vazios
+                let avisoVazio = '';
+                if (!item.selecoes.data || !item.selecoes.hora) {
+                    const faltando = [];
+                    if (!item.selecoes.data) faltando.push('Data');
+                    if (!item.selecoes.hora) faltando.push('Horário');
+                    avisoVazio = `<div class="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-1">⚠️ OCR não detectou: ${faltando.join(' e ')} — preencha manualmente (obrigatório p/ confirmar).</div>`;
+                }
+
+                // Chips de detecções alternativas
+                let chips = '';
+                const chipsLista = [];
+                (d.datasAlt || []).forEach(dt => chipsLista.push({ label: '📅 ' + formatarDataBR(dt), campo: 'data', valor: dt }));
+                (d.horasAlt || []).forEach(hh => chipsLista.push({ label: '🕐 ' + hh, campo: 'hora', valor: hh }));
+                if (chipsLista.length > 0) {
+                    chips = `<div class="flex flex-wrap items-center gap-1">
+                        <span class="text-[10px] font-semibold text-gray-400">Outras detecções:</span>
+                        ${chipsLista.map((c, idx) => `<button type="button" class="text-[10px] bg-white border border-gray-300 hover:border-blue-400 hover:text-blue-600 px-2 py-0.5 rounded-full transition" onclick="aplicarChipItem('${item.id}', '${c.campo}', '${c.valor}')">${c.label}</button>`).join('')}
+                    </div>`;
+                }
+
+                const infoExtra = [];
+                if (d.colaborador) infoExtra.push('👤 ' + d.colaborador);
+                if (d.empresa) infoExtra.push('🏢 ' + d.empresa);
+                if (d.cnpj) infoExtra.push('CNPJ: ' + d.cnpj);
+
+                conteudo += `
+                    <div class="flex-1 space-y-2 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">✅ lido</span>
+                            ${infoExtra.length > 0 ? `<span class="text-[10px] text-gray-500 truncate">${infoExtra.join(' • ')}</span>` : ''}
+                        </div>
+                        ${avisoVazio}
+                        ${avisoSub}
+                        ${avisoFora}
+                        <div class="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end">
+                            <div class="sm:col-span-3">
+                                <label class="block text-[10px] font-semibold text-gray-400 mb-0.5">Data</label>
+                                <input type="date" id="${idD}" value="${item.selecoes.data}" onchange="onChangeDataItem('${item.id}', this.value)" class="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[10px] font-semibold text-gray-400 mb-0.5">Horário</label>
+                                <input type="time" id="${idH}" value="${item.selecoes.hora}" onchange="onChangeHoraItem('${item.id}', this.value)" class="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label class="block text-[10px] font-semibold text-gray-400 mb-0.5">Tipo (sugerido)</label>
+                                <select id="${idT}" onchange="onChangeTipoItem('${item.id}', this.value)" class="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs">
+                                    <option value="Entrada" ${item.selecoes.tipo === 'Entrada' ? 'selected' : ''}>Entrada</option>
+                                    <option value="Almoço Saída" ${item.selecoes.tipo === 'Almoço Saída' ? 'selected' : ''}>Saída Almoço</option>
+                                    <option value="Almoço Retorno" ${item.selecoes.tipo === 'Almoço Retorno' ? 'selected' : ''}>Retorno Almoço</option>
+                                    <option value="Saída" ${item.selecoes.tipo === 'Saída' ? 'selected' : ''}>Saída</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-4">
+                                <label class="block text-[10px] font-semibold text-gray-400 mb-0.5">Justificativa</label>
+                                <input type="text" id="${idJ}" maxlength="60" value="${item.selecoes.justificativa || ''}" placeholder="Importado via comprovante" class="w-full bg-white border border-gray-200 rounded-lg p-1.5 text-xs">
+                            </div>
+                        </div>
+                        ${chips}
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button onclick="removerItemFila('${item.id}')" class="text-[10px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded-md transition">🗑️ Remover item</button>
+                            <button onclick="reprocessarItem('${item.id}')" class="text-[10px] font-bold text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-md transition">🔄 Re-ler</button>
+                            <button onclick="visualizarImagemFila('${item.id}')" class="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition">🖼️ Ver print</button>
+                        </div>
+                    </div>`;
+            } else if (item.status === 'gravando') {
+                conteudo += `
+                    <div class="flex-1 flex items-center">
+                        <span class="text-xs text-blue-600 font-semibold animate-pulse">💾 ${item.erro || 'gravando no banco de dados...'}</span>
+                    </div>`;
+            }
+
+            card.innerHTML = conteudo;
+            return card;
+        }
+
+        function atualizarCardItem(itemId) {
+            const idx = filaImportacao.findIndex(i => i.id === itemId);
+            if (idx < 0) return;
+            const item = filaImportacao[idx];
+            const cardExistente = document.getElementById(`card-${itemId}`);
+            if (cardExistente) {
+                const novoCard = criarCardItem(item);
+                cardExistente.replaceWith(novoCard);
+            }
+            renderizarFila(); // atualiza contagem/status geral/botões
+        }
+
+        // ---- Edição dos itens da fila ----
+        function liberarReserva(item) {
+            if (item.campoReservado && item.selecoes.data && estadoSimulado[item.selecoes.data]) {
+                const est = estadoSimulado[item.selecoes.data];
+                if (est[item.campoReservado] === 'RESERVADO_FILA') {
+                    est[item.campoReservado] = null;
+                }
+            }
+            item.campoReservado = null;
+        }
+
+        function onChangeDataItem(itemId, novaData) {
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (!item) return;
+            liberarReserva(item);
+            item.selecoes.data = novaData;
+            // Re-sugere o tipo para a nova data
+            sugerirTipoParaItem(item).then(() => renderizarFila());
+        }
+
+        function onChangeHoraItem(itemId, novaHora) {
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (!item) return;
+            item.selecoes.hora = novaHora;
+        }
+
+        function onChangeTipoItem(itemId, novoTipo) {
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (!item) return;
+            liberarReserva(item);
+            item.selecoes.tipo = novoTipo;
+            item.campoReservado = MAPA_TIPO_CAMPO[novoTipo];
+            if (item.selecoes.data && estadoSimulado[item.selecoes.data]) {
+                estadoSimulado[item.selecoes.data][item.campoReservado] = 'RESERVADO_FILA';
+            }
+            renderizarFila(); // atualiza avisos de substituição
+        }
+
+        function aplicarChipItem(itemId, campo, valor) {
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (!item) return;
+            if (campo === 'data') {
+                onChangeDataItem(itemId, valor);
+            } else if (campo === 'hora') {
+                item.selecoes.hora = valor;
+                renderizarFila();
+            }
+        }
+
+        function removerItemFila(itemId) {
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (item) liberarReserva(item);
+            filaImportacao = filaImportacao.filter(i => i.id !== itemId);
+            debugLog(`Item removido da fila: ${itemId}`, 'info');
+            renderizarFila();
+        }
+
+        function reprocessarItem(itemId) {
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (!item || processandoFilaOCR) {
+                if (processandoFilaOCR) alert('Aguarde: já existe uma leitura em andamento.');
+                return;
+            }
+            item.status = 'aguardando';
+            item.erro = null;
+            renderizarFila();
+            processarFilaOCR();
+        }
+
+        function visualizarImagemFila(itemId) {
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (!item) return;
+            abrirModalImagem(item.dataURL, 'Print da fila — ' + (item.selecoes.data ? formatarDataBR(item.selecoes.data) : 'data não detectada'));
+        }
+
+        function abrirModalImagem(url, titulo) {
+            document.getElementById('modal-titulo').innerText = titulo || 'Comprovante';
+            document.getElementById('modal-img').src = url;
+            document.getElementById('modal-comprovante').classList.remove('hidden');
+        }
+
+        function fecharModalImagem() {
+            document.getElementById('modal-comprovante').classList.add('hidden');
+            document.getElementById('modal-img').src = '';
+        }
+
+        // Alias para o histórico (mesmo modal)
+        async function verComprovanteHistorico(dataStr) {
+            const info = indiceComprovantes[dataStr];
+            if (!info) return;
+
+            let url = info.url;
+            if (!url && info.id) {
+                try {
+                    const doc = await colecaoPontos.doc(dataStr).collection('comprovantes').doc(info.id).get();
+                    url = doc.exists ? doc.data().base64 : null;
+                } catch (e) {
+                    debugLog(`Erro ao buscar comprovante de ${dataStr}: ${e.message}`, 'erro');
+                }
+            }
+            if (!url) {
+                alert('A imagem do comprovante não foi encontrada.');
+                return;
+            }
+            abrirModalImagem(url, 'Comprovante — ' + formatarDataBR(dataStr));
+        }
+
+        function limparFila() {
+            if (filaImportacao.length > 0 && !confirm('Descartar TODOS os comprovantes da fila (incluindo os não gravados)?')) return;
+            filaImportacao = [];
+            estadoSimulado = {};
+            document.getElementById('input-imagem').value = '';
+            document.getElementById('resumo-lote').classList.add('hidden');
+            document.getElementById('status-gravacao').classList.add('hidden');
+            document.getElementById('status-ocr-geral').classList.add('hidden');
+            renderizarFila();
+            debugLog('Fila limpa', 'info');
+        }
+
+        // ---- Confirmação e gravação em lote ----
+        async function confirmarLote() {
+            debugLog('=== CONFIRMAÇÃO EM LOTE INICIADA ===', 'info');
+
+            if (!colecaoPontos) {
+                alert('Erro: O sistema não está conectado ao Firebase.\nVerifique a internet e recarregue a página.');
+                return;
+            }
+            if (!navigator.onLine) {
+                alert('Você está sem internet. Reconecte e tente novamente.');
+                return;
+            }
+
+            const itensLidos = filaImportacao.filter(i => i.status === 'lido');
+            if (itensLidos.length === 0) {
+                alert('Nenhum comprovante está pronto para gravação (leitura falhou ou fila vazia).');
+                return;
+            }
+
+            // Validação: todos os itens precisam de data e hora
+            const semDados = itensLidos.filter(i => !i.selecoes.data || !i.selecoes.hora);
+            if (semDados.length > 0) {
+                alert(`⚠️ ${semDados.length} item(ns) estão sem Data e/ou Horário.\n\nPreencha manualmente nos cards da fila (ou remova os itens) antes de confirmar.`);
+                const primeiro = document.getElementById(`card-${semDados[0].id}`);
+                if (primeiro) primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            if (!confirm(`Confirma a importação de ${itensLidos.length} comprovante(s)?\n\nItens duplicados serão pulados automaticamente.`)) return;
+
+            gravandoLote = true;
+            renderizarFila();
+
+            const resultados = { ok: [], pulados: [], erros: [] };
+            const total = itensLidos.length;
+
+            for (let idx = 0; idx < total; idx++) {
+                const item = itensLidos[idx];
+                if (!filaImportacao.includes(item)) continue; // removido no meio do processo
+
+                item.status = 'gravando';
+                item.erro = `gravando item ${idx + 1} de ${total}...`;
+                atualizarCardItem(item.id);
+                atualizarStatusGravacao(`⏳ Gravando comprovante ${idx + 1} de ${total}...`, idx, total);
+
+                try {
+                    const desfecho = await gravarItemLote(item, idx + 1, total);
+                    if (desfecho === 'pulada') {
+                        resultados.pulados.push(item);
+                    } else {
+                        resultados.ok.push(item);
+                    }
+                } catch (e) {
+                    resultados.erros.push({ item, motivo: e.message });
+                    debugLog(`Item ${item.id} FALHOU na gravação: ${e.message}`, 'erro');
+                }
+            }
+
+            gravandoLote = false;
+            atualizarStatusGravacao('', 0, 0, true);
+
+            // Remove da fila apenas os gravados com sucesso; os demais permanecem com marcação
+            filaImportacao = filaImportacao.filter(i => !resultados.ok.includes(i));
+            resultados.pulados.forEach(i => { i.status = 'falhou'; i.erro = 'PULADO: comprovante duplicado (mesma Identificação ou mesmo tipo + horário já registrado no dia).'; });
+            resultados.erros.forEach(r => { r.item.status = 'falhou'; r.item.erro = 'Erro na gravação: ' + r.motivo; });
+
+            estadoSimulado = {}; // força recarga do estado real na próxima leitura
+            renderizarFila();
+            mostrarResumoLote(resultados);
+            carregarHistorico();
+            debugLog(`=== LOTE CONCLUÍDO: ${resultados.ok.length} ok, ${resultados.pulados.length} pulado(s), ${resultados.erros.length} erro(s) ===`, 'ok');
+        }
+
+        async function gravarItemLote(item, atual, total) {
+            const dataStr = item.selecoes.data;
+            const horaStr = item.selecoes.hora;
+            const tipo = item.selecoes.tipo;
+            const justificativa = (item.selecoes.justificativa || '').trim() || 'Importado via comprovante';
+            const identificacao = item.extraidos ? (item.extraidos.identificacao || '') : '';
+            const campoTipo = MAPA_TIPO_CAMPO[tipo];
+
+            // Proteções anti-duplicidade (reais, contra o banco)
+            const snap = await comTimeout(colecaoPontos.doc(dataStr).get(), 20000, 'Consulta ao banco demorou (20s)');
+            if (snap.exists) {
+                const d = snap.data();
+                if (identificacao && d.identificacao && d.identificacao === identificacao) {
+                    debugLog(`Item ${item.id} pulado: mesma Identificação de Marcação`, 'warn');
+                    return 'pulada';
+                }
+                if (d[campoTipo] === horaStr) {
+                    debugLog(`Item ${item.id} pulado: ${tipo} já existe às ${horaStr} em ${dataStr}`, 'warn');
+                    return 'pulada';
+                }
+            }
+
+            // Envio da imagem (blob pré-comprimido se disponível)
+            let extras = { identificacao: identificacao, origem: 'comprovante' };
+            const resultadoImg = await enviarImagemItem(item, dataStr, (pct) => {
+                item.erro = `gravando item ${atual}/${total} — imagem ${pct}%`;
+                const card = document.getElementById(`card-${item.id}`);
+                if (card) {
+                    const span = card.querySelector('.text-blue-600.font-semibold');
+                    if (span) span.innerText = `💾 enviando imagem ${pct}%...`;
+                }
+            });
+
+            if (resultadoImg.ok && resultadoImg.storage) {
+                extras.comprovanteUrl = resultadoImg.url;
+                extras.comprovantePath = resultadoImg.path;
+            } else if (resultadoImg.ok) {
+                extras.comprovanteId = await salvarImagemFirestore(dataStr, resultadoImg.base64, identificacao);
+            } else {
+                debugLog(`Item ${item.id}: imagem não salva (${resultadoImg.motivo}) — gravando ponto sem imagem`, 'warn');
+            }
+
+            // Gravação do ponto
+            await gravarPontoFirestore(dataStr, horaStr, tipo, justificativa, extras);
+            debugLog(`Item ${item.id} gravado: ${dataStr} ${tipo}=${horaStr}`, 'ok');
+            return 'ok';
+        }
+
+        async function enviarImagemItem(item, dataStr, onProgresso) {
+            let blob = item.blob;
+            if (!blob) {
+                debugLog(`Item ${item.id}: blob não estava pronto — comprimindo agora...`, 'warn');
+                blob = await comprimirAdaptativo(item.dataURL);
+                item.blob = blob;
+            }
+            if (!blob) return { ok: false, motivo: 'falha ao comprimir a imagem' };
+
+            if (storagePontos) {
+                try {
+                    const caminho = `comprovantes/${dataStr}/${Date.now()}.jpg`;
+                    const ref = storagePontos.ref().child(caminho);
+                    const task = ref.put(blob, { contentType: 'image/jpeg' });
+                    task.on('state_changed', (snap) => {
+                        if (onProgresso && snap.totalBytes > 0) {
+                            onProgresso(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+                        }
+                    });
+                    await comTimeout(task, 60000, 'Upload no Storage demorou (60s)');
+                    const url = await task.snapshot.ref.getDownloadURL();
+                    debugLog(`Imagem ${item.id} salva no Storage: ${caminho} (~${Math.round(blob.size / 1024)} KB)`, 'ok');
+                    return { ok: true, storage: true, url, path: caminho, kb: Math.round(blob.size / 1024) };
+                } catch (e) {
+                    debugLog(`Storage falhou p/ ${item.id} (${e.code || ''} ${e.message}) — fallback Firestore`, 'warn');
+                }
+            }
+
+            // Fallback: base64 na subcoleção
+            if (onProgresso) onProgresso(50);
+            let dataURL = await blobParaDataURL(blob);
+            if (dataURL.length > 900000) {
+                const menor = await comprimirParaBlob(item.dataURL, 600, 0.45);
+                if (menor) dataURL = await blobParaDataURL(menor);
+            }
+            if (onProgresso) onProgresso(85);
+            if (dataURL.length > 950000) {
+                return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
+            }
+            return { ok: true, storage: false, base64: dataURL, kb: Math.round(dataURL.length / 1024) };
+        }
+
+        function atualizarStatusGravacao(texto, atual, total, esconder = false) {
+            const container = document.getElementById('status-gravacao');
+            const textoEl = document.getElementById('status-gravacao-texto');
+            const contEl = document.getElementById('status-gravacao-cont');
+            const barra = document.getElementById('status-gravacao-barra');
+            if (esconder || !texto) { container.classList.add('hidden'); return; }
+            container.classList.remove('hidden');
+            textoEl.innerText = texto;
+            contEl.innerText = `${atual}/${total}`;
+            barra.style.width = Math.max(2, Math.round((atual / total) * 100)) + '%';
+        }
+
+        function mostrarResumoLote(resultados) {
+            const el = document.getElementById('resumo-lote');
+            el.classList.remove('hidden');
+
+            const linhas = [];
+            const totalOk = resultados.ok.length;
+            const totalPul = resultados.pulados.length;
+            const totalErr = resultados.erros.length;
+
+            if (totalOk > 0) {
+                linhas.push(`<div class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2">✅ <strong>${totalOk} comprovante(s) importado(s) com sucesso!</strong></div>`);
+                resultados.ok.forEach(i => {
+                    linhas.push(`<div class="text-gray-600 pl-2">• ${formatarDataBR(i.selecoes.data)} — ${i.selecoes.tipo} às ${i.selecoes.hora}</div>`);
+                });
+            }
+            if (totalPul > 0) {
+                linhas.push(`<div class="text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-1">⚠️ <strong>${totalPul} pulado(s) por duplicidade</strong> (permanecem na fila para conferência)</div>`);
+            }
+            if (totalErr > 0) {
+                linhas.push(`<div class="text-rose-700 bg-rose-50 border border-rose-200 rounded p-2 mt-1">❌ <strong>${totalErr} com erro</strong> (permanecem na fila — use "🔄 Tentar de novo")</div>`);
+                resultados.erros.forEach(r => {
+                    linhas.push(`<div class="text-gray-600 pl-2">• ${r.motivo}</div>`);
+                });
+            }
+            if (filaImportacao.length === 0) {
+                linhas.push(`<div class="text-gray-500 mt-1">Fila vazia — envie novos prints quando quiser. 👍</div>`);
+            }
+
+            el.innerHTML = linhas.join('');
+        }
+
+        // =========================================================================
+        // 5.1 OCR (worker compartilhado da fila)
+        // =========================================================================
         const STATUS_OCR_PT = {
             'loading tesseract core': 'Baixando motor de OCR',
             'initializing tesseract': 'Inicializando motor',
@@ -1203,8 +1860,8 @@
                 Tesseract.createWorker('por', 1, {
                     logger: (m) => {
                         const rotulo = STATUS_OCR_PT[m.status] || m.status;
-                        if (typeof m.progress === 'number') {
-                            atualizarStatusOCR(`⏳ ${rotulo}...`, Math.round(m.progress * 100));
+                        if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+                            // progresso individual aparece no card via status geral da fila
                         }
                     }
                 }),
@@ -1232,184 +1889,9 @@
             });
         }
 
-        // OCR — chamado automaticamente ao receber a imagem; o botão de retry reutiliza esta função
-        async function processarImagem() {
-            if (!imagemAtual) { alert('Envie a imagem do comprovante primeiro.'); return; }
-            const meuPipeline = pipelineId;
-            debugLog('=== OCR INICIADO ===', 'info');
-
-            document.getElementById('btn-retry-ocr').classList.add('hidden');
-            try {
-                if (!navigator.onLine) {
-                    throw new Error('Você está SEM internet. O OCR precisa de conexão para funcionar.');
-                }
-
-                const worker = await obterWorkerOCR();
-                if (meuPipeline !== pipelineId) return; // imagem trocada no meio — aborta
-
-                const imgFinal = await redimensionarImagem(imagemAtual);
-                if (meuPipeline !== pipelineId) return;
-                debugLog(`Imagem preparada p/ OCR: ~${Math.round(imgFinal.length / 1024)} KB`, 'info');
-
-                const resultado = await comTimeout(
-                    worker.recognize(imgFinal),
-                    120000,
-                    'O OCR demorou demais (120s). Tente novamente ou use o teste 🧪 do diagnóstico.'
-                );
-                if (meuPipeline !== pipelineId) return;
-                const data = resultado.data;
-
-                ultimoTextoOCR = data.text || '';
-                document.getElementById('debug-ocr-texto').innerText = ultimoTextoOCR || '(texto vazio!)';
-                debugLog(`OCR concluído: ${ultimoTextoOCR.length} caracteres lidos`, ultimoTextoOCR.length > 20 ? 'ok' : 'warn');
-
-                if (ultimoTextoOCR.trim().length < 10) {
-                    debugLog('OCR leu texto insuficiente — imagem pode estar borrada/cortada', 'warn');
-                }
-
-                const extraidos = extrairDadosComprovante(ultimoTextoOCR);
-                debugLog(`Extração → data=${extraidos.data || 'NÃO DETECTADA'} | hora=${extraidos.hora || 'NÃO DETECTADA'} | id=${extraidos.identificacao ? 'sim (' + extraidos.identificacao.length + ' car.)' : 'não'}`, 'info');
-
-                await preencherFormularioImportacao(extraidos);
-                if (meuPipeline !== pipelineId) return;
-
-                document.getElementById('passo-dados').scrollIntoView({ behavior: 'smooth', block: 'start' });
-                atualizarStatusOCR('✅ Leitura automática concluída! Confira os campos no Passo 2.', null);
-            } catch (err) {
-                debugLog(`OCR FALHOU: ${err.message}`, 'erro');
-                atualizarStatusOCR('❌ Erro ao ler a imagem: ' + err.message, null);
-                document.getElementById('btn-retry-ocr').classList.remove('hidden');
-                alert('Não foi possível ler a imagem: ' + err.message + '\n\nUse o botão "🔄 Tentar leitura novamente" ou abra o 🐞 diagnóstico.');
-            }
-        }
-
         // =========================================================================
-        // 5.1 ARMAZENAMENTO DA IMAGEM — OTIMIZADO (Blob binário + pré-compressão)
+        // 5.2 EXCLUSÃO DE IMAGENS DO HISTÓRICO
         // =========================================================================
-
-        // Converte canvas direto em Blob (binário) — evita string base64 gigante na memória
-        function comprimirParaBlob(dataURL, maxLado, qualidade) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
-                    const canvas = document.createElement('canvas');
-                    canvas.width = Math.round(img.width * escala);
-                    canvas.height = Math.round(img.height * escala);
-                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', qualidade);
-                };
-                img.onerror = () => resolve(null);
-                img.src = dataURL;
-            });
-        }
-
-        // Compressão adaptativa: busca a melhor qualidade dentro do alvo de ~200KB.
-        // Executada em SEGUNDO PLANO assim que a imagem chega (paralela ao OCR).
-        async function prepararBlobUpload(meuPipeline) {
-            const t0 = performance.now();
-            debugLog('Pré-compressão da imagem iniciada (2º plano)...', 'info');
-
-            const tentativas = [
-                { maxLado: 900, qualidade: 0.70 },
-                { maxLado: 800, qualidade: 0.60 },
-                { maxLado: 700, qualidade: 0.50 },
-                { maxLado: 600, qualidade: 0.42 }
-            ];
-
-            let melhorBlob = null;
-            for (const t of tentativas) {
-                if (meuPipeline !== undefined && meuPipeline !== pipelineId) return; // imagem trocada
-                const blob = await comprimirParaBlob(imagemAtual, t.maxLado, t.qualidade);
-                if (!blob) break;
-                melhorBlob = blob;
-                if (blob.size <= 200 * 1024) break; // atingiu o alvo
-            }
-
-            if (meuPipeline !== undefined && meuPipeline !== pipelineId) return;
-
-            if (melhorBlob) {
-                blobUploadPronto = melhorBlob;
-                const ms = Math.round(performance.now() - t0);
-                debugLog(`Pré-compressão concluída em ${ms}ms → ~${Math.round(melhorBlob.size / 1024)} KB (pronto p/ envio instantâneo)`, 'ok');
-            } else {
-                debugLog('Pré-compressão falhou — upload tentará comprimir na hora', 'warn');
-            }
-        }
-
-        function blobParaDataURL(blob) {
-            return new Promise((resolve, reject) => {
-                const r = new FileReader();
-                r.onload = () => resolve(r.result);
-                r.onerror = reject;
-                r.readAsDataURL(blob);
-            });
-        }
-
-        // ALTERADO: envia Blob binário (put) com progresso real; fallback Firestore se Storage falhar
-        async function enviarImagemComprovante(dataStr, onProgresso) {
-            if (!imagemAtual) return { ok: false, motivo: 'Nenhuma imagem carregada.' };
-
-            // Usa o blob pré-comprimido se já estiver pronto; senão comprime agora
-            let blob = blobUploadPronto;
-            if (!blob) {
-                debugLog('Blob pré-comprimido não estava pronto — comprimindo agora...', 'info');
-                await prepararBlobUpload();
-                blob = blobUploadPronto;
-            }
-            if (!blob) return { ok: false, motivo: 'falha ao comprimir a imagem' };
-
-            debugLog(`Enviando ~${Math.round(blob.size / 1024)} KB (binário)...`, 'info');
-
-            // 1) Caminho preferencial: Firebase Storage (upload binário — mais rápido)
-            if (storagePontos) {
-                try {
-                    const caminho = `comprovantes/${dataStr}/${Date.now()}.jpg`;
-                    const ref = storagePontos.ref().child(caminho);
-                    const task = ref.put(blob, { contentType: 'image/jpeg' });
-
-                    task.on('state_changed', (snap) => {
-                        if (onProgresso && snap.totalBytes > 0) {
-                            onProgresso(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-                        }
-                    });
-
-                    await comTimeout(task, 60000, 'Upload no Storage demorou (60s)');
-                    const url = await task.snapshot.ref.getDownloadURL();
-                    debugLog(`Imagem salva no Storage em formato binário: ${caminho}`, 'ok');
-                    return { ok: true, storage: true, url: url, path: caminho, kb: Math.round(blob.size / 1024) };
-                } catch (e) {
-                    debugLog(`Storage falhou (${e.code || ''} ${e.message}) — usando fallback Firestore`, 'warn');
-                }
-            } else {
-                debugLog('Storage indisponível — usando fallback Firestore diretamente', 'warn');
-            }
-
-            // 2) Fallback: base64 na subcoleção do dia (documento pequeno = escrita rápida)
-            if (onProgresso) onProgresso(50);
-            let dataURL = await blobParaDataURL(blob);
-            if (dataURL.length > 900000) {
-                const menor = await comprimirParaBlob(imagemAtual, 600, 0.45);
-                if (menor) dataURL = await blobParaDataURL(menor);
-            }
-            if (onProgresso) onProgresso(85);
-
-            if (dataURL.length > 950000) {
-                return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
-            }
-            return { ok: true, storage: false, base64: dataURL, kb: Math.round(dataURL.length / 1024) };
-        }
-
-        async function salvarImagemFirestore(dataStr, base64, identificacao) {
-            const docComp = await colecaoPontos.doc(dataStr).collection('comprovantes').add({
-                base64: base64,
-                identificacao: identificacao || null,
-                criadoEm: Date.now()
-            });
-            debugLog(`Imagem salva no Firestore (doc ${docComp.id})`, 'ok');
-            return docComp.id;
-        }
-
         async function limparComprovante(idData) {
             try {
                 const docDia = await colecaoPontos.doc(idData).get();
@@ -1427,33 +1909,9 @@
             }
         }
 
-        async function verComprovante(dataStr) {
-            const info = indiceComprovantes[dataStr];
-            if (!info) return;
-
-            let url = info.url;
-            if (!url && info.id) {
-                try {
-                    const doc = await colecaoPontos.doc(dataStr).collection('comprovantes').doc(info.id).get();
-                    url = doc.exists ? doc.data().base64 : null;
-                } catch (e) {
-                    debugLog(`Erro ao buscar comprovante de ${dataStr}: ${e.message}`, 'erro');
-                }
-            }
-            if (!url) {
-                alert('A imagem do comprovante não foi encontrada.');
-                return;
-            }
-            document.getElementById('modal-titulo').innerText = 'Comprovante — ' + formatarDataBR(dataStr);
-            document.getElementById('modal-img').src = url;
-            document.getElementById('modal-comprovante').classList.remove('hidden');
-        }
-
-        function fecharModalComprovante() {
-            document.getElementById('modal-comprovante').classList.add('hidden');
-            document.getElementById('modal-img').src = '';
-        }
-
+        // =========================================================================
+        // 5.3 EXTRAÇÃO DE DADOS DO COMPROVANTE (OCR)
+        // =========================================================================
         function extrairDadosComprovante(texto) {
             const linhas = texto.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
             const res = {
@@ -1561,224 +2019,6 @@
                 }
             }
             return melhor.length >= 30 ? melhor : null;
-        }
-
-        async function sugerirTipoPonto(dataStr) {
-            if (!colecaoPontos) return 'Entrada';
-            try {
-                const snap = await colecaoPontos.doc(dataStr).get();
-                if (!snap.exists) return 'Entrada';
-                const d = snap.data();
-                if (!d.entrada) return 'Entrada';
-                if (!d.almocoSaida) return 'Almoço Saída';
-                if (!d.almocoRetorno) return 'Almoço Retorno';
-                if (!d.saida) return 'Saída';
-                return null;
-            } catch (e) {
-                debugLog(`Erro ao consultar dia ${dataStr} p/ sugestão: ${e.message}`, 'warn');
-                return 'Entrada';
-            }
-        }
-
-        async function preencherFormularioImportacao(d) {
-            document.getElementById('passo-dados').classList.remove('hidden');
-            document.getElementById('import-data').value = d.data || '';
-            document.getElementById('import-hora').value = d.hora || '';
-            document.getElementById('import-identificacao').value = d.identificacao || '';
-            debugLog(`Campos preenchidos → data="${d.data || ''}" hora="${d.hora || ''}"`, 'info');
-
-            const faltando = [];
-            if (!d.data) faltando.push('Data');
-            if (!d.hora) faltando.push('Horário');
-            const alertaEl = document.getElementById('alerta-campos-vazios');
-            if (faltando.length > 0) {
-                document.getElementById('alerta-campos-lista').innerText = faltando.join(' e ');
-                alertaEl.classList.remove('hidden');
-                debugLog(`Alerta exibido: campos não detectados → ${faltando.join(', ')}`, 'warn');
-            } else {
-                alertaEl.classList.add('hidden');
-            }
-
-            let avisoFora = '';
-            if (d.data && !dentroPeriodoBanco(d.data)) {
-                avisoFora = `<br>🚫 <strong>Atenção:</strong> esta data está FORA do período do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}). O ponto será salvo no histórico, mas não contará para a meta de 24h.`;
-            }
-
-            const info = [];
-            if (d.colaborador) info.push('👤 <strong>' + d.colaborador + '</strong>');
-            if (d.cpf) info.push('CPF: ' + d.cpf);
-            if (d.empresa) info.push('🏢 ' + d.empresa);
-            if (d.cnpj) info.push('CNPJ: ' + d.cnpj);
-            if (d.fuso) info.push('🌐 ' + d.fuso);
-
-            let avisos = '';
-            if (!d.data) avisos += '<br>⚠️ <strong>Data não detectada</strong> — preencha manualmente.';
-            if (!d.hora) avisos += '<br>⚠️ <strong>Horário não detectado</strong> — preencha manualmente.';
-
-            document.getElementById('info-comprovante').innerHTML =
-                (info.join(' &nbsp;•&nbsp; ') || '<i>Não foi possível ler os dados informativos do comprovante.</i>') + avisos + avisoFora;
-
-            renderizarSugestoes(d);
-
-            let tipoSugerido = null;
-            let diaCompleto = false;
-            if (d.data) {
-                tipoSugerido = await sugerirTipoPonto(d.data);
-                if (tipoSugerido === null) {
-                    diaCompleto = true;
-                    tipoSugerido = 'Entrada';
-                }
-            } else {
-                tipoSugerido = 'Entrada';
-            }
-            document.getElementById('import-tipo').value = tipoSugerido;
-            debugLog(`Tipo de ponto sugerido: ${tipoSugerido}`, 'info');
-
-            if (diaCompleto) {
-                document.getElementById('info-comprovante').innerHTML +=
-                    '<br>⚠️ Este dia já possui os 4 pontos. A importação <strong>substituirá</strong> um deles (haverá confirmação).';
-            }
-        }
-
-        function renderizarSugestoes(d) {
-            const container = document.getElementById('sugestoes-chips');
-            container.innerHTML = '';
-            const chips = [];
-            d.datasAlt.forEach(dt => chips.push({ label: '📅 ' + formatarDataBR(dt), campo: 'import-data', valor: dt }));
-            d.horasAlt.forEach(hh => chips.push({ label: '🕐 ' + hh, campo: 'import-hora', valor: hh }));
-
-            if (chips.length === 0) {
-                container.innerHTML = '<span class="text-xs text-gray-400">Nenhuma detecção alternativa encontrada.</span>';
-                return;
-            }
-            const titulo = document.createElement('span');
-            titulo.className = 'text-xs font-semibold text-gray-500 mr-1';
-            titulo.innerText = 'Outras detecções (clique para usar):';
-            container.appendChild(titulo);
-
-            chips.forEach(c => {
-                const b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'text-xs bg-white border border-gray-300 hover:border-blue-400 hover:text-blue-600 px-2 py-1 rounded-full transition';
-                b.innerText = c.label;
-                b.onclick = () => { document.getElementById(c.campo).value = c.valor; };
-                container.appendChild(b);
-            });
-        }
-
-        async function confirmarImportacao() {
-            debugLog('=== CONFIRMAÇÃO DA IMPORTAÇÃO INICIADA ===', 'info');
-
-            if (!colecaoPontos) {
-                debugLog('Confirmação bloqueada: Firestore não inicializado', 'erro');
-                alert('Erro: O sistema não está conectado ao Firebase.\nVerifique a internet e recarregue a página.');
-                return;
-            }
-
-            const btn = document.getElementById('btn-confirmar-import');
-            const textoOriginal = btn.innerText;
-            const dataStr = document.getElementById('import-data').value;
-            const horaStr = document.getElementById('import-hora').value;
-            const tipo = document.getElementById('import-tipo').value;
-            const justificativa = document.getElementById('import-justificativa').value.trim() || 'Importado via comprovante';
-            const identificacao = document.getElementById('import-identificacao').value.trim();
-            const salvarImagem = document.getElementById('import-salvar-imagem').checked;
-
-            debugLog(`Dados lidos dos campos → data="${dataStr}" hora="${horaStr}" tipo="${tipo}"`, 'info');
-
-            if (!dataStr || !horaStr) {
-                debugLog(`Confirmação BLOQUEADA: campos vazios (data=${!!dataStr}, hora=${!!horaStr})`, 'erro');
-                alert('Data e horário são obrigatórios!\n\nO OCR não detectou um ou ambos — preencha manualmente nos campos do Passo 2 e tente novamente.');
-                return;
-            }
-
-            if (!navigator.onLine) {
-                debugLog('Confirmação bloqueada: dispositivo offline', 'erro');
-                alert('Você está sem internet. Reconecte e tente novamente.');
-                return;
-            }
-
-            const campoTipo = {
-                'Entrada': 'entrada',
-                'Almoço Saída': 'almocoSaida',
-                'Almoço Retorno': 'almocoRetorno',
-                'Saída': 'saida'
-            }[tipo];
-
-            try {
-                debugLog('Consultando dia existente no Firestore...', 'info');
-                const snap = await comTimeout(colecaoPontos.doc(dataStr).get(), 20000, 'Consulta ao banco demorou (20s)');
-
-                if (snap.exists) {
-                    const d = snap.data();
-
-                    if (identificacao && d.identificacao && d.identificacao === identificacao) {
-                        debugLog('Bloqueado: comprovante duplicado (mesma identificação)', 'warn');
-                        alert('⚠️ Este comprovante já foi importado anteriormente (mesma Identificação de Marcação).\nImportação cancelada para evitar duplicidade.');
-                        return;
-                    }
-                    if (d[campoTipo] === horaStr) {
-                        debugLog(`Bloqueado: ${tipo} já existe com o mesmo horário`, 'warn');
-                        alert(`⚠️ O dia ${formatarDataBR(dataStr)} já possui "${tipo}" registrado às ${horaStr}.\nImportação cancelada para evitar duplicidade.`);
-                        return;
-                    }
-                    if (d[campoTipo]) {
-                        const ok = confirm(`O dia ${formatarDataBR(dataStr)} já possui "${tipo}" às ${d[campoTipo]}.\n\nDeseja substituir por ${horaStr}?`);
-                        if (!ok) { debugLog('Usuário cancelou a substituição', 'info'); return; }
-                    }
-                } else {
-                    debugLog('Dia novo (sem registro anterior)', 'info');
-                }
-
-                let extras = { identificacao: identificacao, origem: 'comprovante' };
-
-                if (salvarImagem && imagemAtual) {
-                    btn.disabled = true;
-                    btn.innerText = '⏳ Enviando...';
-                    const t0 = performance.now();
-
-                    const resultado = await enviarImagemComprovante(dataStr, (pct) => {
-                        atualizarStatusUpload(`⏳ Enviando imagem do comprovante...`, pct);
-                    });
-
-                    const msTotal = Math.round(performance.now() - t0);
-
-                    if (resultado.ok && resultado.storage) {
-                        extras.comprovanteUrl = resultado.url;
-                        extras.comprovantePath = resultado.path;
-                        atualizarStatusUpload(`✅ Imagem enviada (~${resultado.kb} KB em ${msTotal / 1000}s via Storage)`, 100, 'bg-emerald-500');
-                        debugLog(`Upload concluído em ${msTotal}ms via Storage`, 'ok');
-                    } else if (resultado.ok) {
-                        try {
-                            extras.comprovanteId = await salvarImagemFirestore(dataStr, resultado.base64, identificacao);
-                            atualizarStatusUpload(`✅ Imagem salva (~${resultado.kb} KB em ${msTotal / 1000}s via Firestore)`, 100, 'bg-emerald-500');
-                        } catch (e) {
-                            debugLog(`Falha ao salvar imagem no Firestore: ${e.message}`, 'erro');
-                            atualizarStatusUpload('⚠️ Imagem não foi salva — o ponto será registrado sem ela.', null, 'bg-amber-500');
-                            const ok = confirm('A imagem não pôde ser salva no banco.\nDeseja registrar o ponto mesmo assim (sem imagem)?');
-                            if (!ok) { btn.disabled = false; btn.innerText = textoOriginal; return; }
-                        }
-                    } else {
-                        atualizarStatusUpload('⚠️ Imagem não foi salva — o ponto será registrado sem ela.', null, 'bg-amber-500');
-                        const ok = confirm('Não foi possível salvar a imagem (' + resultado.motivo + ').\nDeseja registrar o ponto mesmo assim (sem imagem)?');
-                        if (!ok) { btn.disabled = false; btn.innerText = textoOriginal; return; }
-                    }
-
-                    btn.disabled = false;
-                    btn.innerText = textoOriginal;
-                }
-
-                await salvarNoFirebase(dataStr, horaStr, tipo, justificativa, extras);
-                debugLog('=== IMPORTAÇÃO CONCLUÍDA COM SUCESSO ===', 'ok');
-
-                limparImportacao();
-
-            } catch (err) {
-                debugLog(`IMPORTAÇÃO FALHOU: ${err.code || ''} ${err.message}`, 'erro');
-                alert('❌ Falha ao concluir a importação.\n\nCódigo: ' + (err.code || 'desconhecido') + '\nDetalhe: ' + err.message + '\n\nAbra o 🐞 diagnóstico e use "Testar banco" para verificar a conexão.');
-                btn.disabled = false;
-                btn.innerText = textoOriginal;
-            }
         }
 
         // =========================================================================
@@ -1910,7 +2150,7 @@
         }
 
         window.onload = function() {
-            debugLog('Sistema carregado', 'ok');
+            debugLog('Sistema carregado (modo lote)', 'ok');
             if (typeof Tesseract === 'undefined') {
                 debugLog('Tesseract.js NÃO carregou — OCR indisponível (verifique internet/bloqueador)', 'erro');
             }
