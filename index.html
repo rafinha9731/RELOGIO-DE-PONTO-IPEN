@@ -337,7 +337,7 @@
                 ['Biblioteca OCR (Tesseract.js)', typeof Tesseract !== 'undefined' ? '✅ carregada' : '❌ NÃO carregou (internet/bloqueio)'],
                 ['Firebase SDK', typeof firebase !== 'undefined' ? '✅ carregado' : '❌ NÃO carregou'],
                 ['Firestore (banco de dados)', colecaoPontos ? '✅ conectado' : '❌ não inicializado'],
-                ['Firebase Storage (imagens)', storagePontos ? '✅ disponível' : '⚠️ indisponível (usa fallback no Firestore)'],
+                ['Firebase Storage (imagens)', storagePontos ? (storageDesativadoSessao ? '⚠️ desativado nesta sessão (usando fallback Firestore)' : '✅ disponível') : '⚠️ indisponível (usa fallback no Firestore)'],
                 ['Conexão de rede', navigator.onLine ? '✅ online' : '❌ OFFLINE'],
                 ['Fila de comprovantes', `${filaImportacao.length} item(ns) — ${filaImportacao.filter(i => i.status === 'lido').length} lido(s), ${filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length} pendente(s)`],
                 ['Meta / Período', `${META_FOLGA_NATAL_MIN / 60}h • ${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}`],
@@ -353,7 +353,7 @@
             texto += `Data: ${new Date().toLocaleString('pt-BR')}\n`;
             texto += `Navegador: ${navigator.userAgent}\n`;
             texto += `Rede online: ${navigator.onLine}\n`;
-            texto += `Tesseract: ${typeof Tesseract !== 'undefined'} | Firebase: ${typeof firebase !== 'undefined'} | Storage: ${!!storagePontos}\n\n`;
+            texto += `Tesseract: ${typeof Tesseract !== 'undefined'} | Firebase: ${typeof firebase !== 'undefined'} | Storage: ${!!storagePontos} | Storage desativado na sessão: ${storageDesativadoSessao}\n\n`;
             texto += '=== ÚLTIMO TEXTO OCR ===\n' + (ultimoTextoOCR || '(nenhum)') + '\n\n';
             texto += '=== EVENTOS (antigos → recentes) ===\n';
             debugLogs.forEach(l => { texto += `${l.ts} [${l.tipo.toUpperCase()}] ${l.msg}\n`; });
@@ -401,6 +401,25 @@
             return Promise.race([promessa, rejeita]).finally(() => clearTimeout(timer));
         }
 
+        // NOVO: retry com backoff para operações do Firestore (resolve o "client is offline" transitório)
+        async function comRetryFirestore(operacao, tentativas = 3, esperaMs = 2000) {
+            let ultimoErro;
+            for (let i = 0; i < tentativas; i++) {
+                try {
+                    return await operacao();
+                } catch (e) {
+                    ultimoErro = e;
+                    const msg = ((e.message || '') + ' ' + (e.code || '')).toLowerCase();
+                    const ehFalhaRede = msg.includes('offline') || msg.includes('network') || msg.includes('unavailable') || msg.includes('deadline');
+                    if (!ehFalhaRede || i === tentativas - 1) throw e;
+                    debugLog(`Firestore falhou (tentativa ${i + 1}/${tentativas}): ${e.message} — repetindo em ${esperaMs}ms...`, 'warn');
+                    await new Promise(r => setTimeout(r, esperaMs));
+                    esperaMs *= 2; // backoff: 2s, 4s...
+                }
+            }
+            throw ultimoErro;
+        }
+
         async function testarConexaoFirestore() {
             const saida = document.getElementById('debug-testes');
             saida.innerHTML += `<div class="text-blue-300">🧪 Testando Firestore...</div>`;
@@ -419,6 +438,34 @@
             } catch (e) {
                 saida.innerHTML += `<div class="text-rose-400">❌ Firestore falhou: ${e.code || ''} ${e.message}</div>`;
                 debugLog(`Teste Firestore falhou: ${e.code || ''} ${e.message}`, 'erro');
+            }
+        }
+
+        // NOVO: teste dedicado ao Storage (isola o problema do upload travando)
+        async function testarStorage() {
+            const saida = document.getElementById('debug-testes');
+            saida.innerHTML += `<div class="text-blue-300">🧪 Testando Firebase Storage (upload de 10 KB)...</div>`;
+            if (!storagePontos) {
+                saida.innerHTML += `<div class="text-rose-400">❌ Storage não disponível (SDK não carregado).</div>`;
+                return;
+            }
+            try {
+                // pequeno PNG de teste gerado localmente
+                const canvas = document.createElement('canvas');
+                canvas.width = 50; canvas.height = 50;
+                const blobTeste = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.5));
+                const caminho = `_debug_teste/${Date.now()}.jpg`;
+                const ref = storagePontos.ref().child(caminho);
+                const t0 = performance.now();
+                await comTimeout(ref.put(blobTeste, { contentType: 'image/jpeg' }), 25000, 'Upload de teste demorou (25s) — provavelmente o bucket do Storage NÃO está criado/ativo no console do Firebase');
+                await ref.delete().catch(() => {});
+                const ms = Math.round(performance.now() - t0);
+                saida.innerHTML += `<div class="text-emerald-400">✅ Storage OK (${ms}ms).</div>`;
+                debugLog(`Teste Storage: SUCESSO em ${ms}ms`, 'ok');
+            } catch (e) {
+                saida.innerHTML += `<div class="text-rose-400">❌ Storage falhou: ${e.message}</div>`;
+                saida.innerHTML += `<div class="text-amber-400">💡 Se o erro for timeout, crie o bucket em: Console Firebase → Build → Storage → "Começar". Sem ele, o sistema usa o fallback no Firestore (que agora é automático).</div>`;
+                debugLog(`Teste Storage falhou: ${e.message}`, 'erro');
             }
         }
 
@@ -496,6 +543,9 @@
         let colecaoConfig = null;
         let bancoTotalAtual = 0;
         let ritmoAtualMinDia = null;
+        // NOVO: se o Storage falhar de forma estrutural (timeout/bucket inexistente/permissão),
+        // desativa para o resto da sessão — próximos itens vão direto ao fallback (rápido)
+        let storageDesativadoSessao = false;
 
         try {
             if (typeof firebase === 'undefined') {
@@ -631,7 +681,7 @@
             document.getElementById('manual-justificativa').value = '';
         }
 
-        // Gravação "muda" (sem alert/sem recarga) — usada pelo lote
+        // Gravação "muda" (sem alert) — usada pelo lote — agora COM retry de rede
         async function gravarPontoFirestore(data, hora, tipo, justificativa, extras = {}) {
             const docRef = colecaoPontos.doc(data);
             let dadosPonto = { data: data };
@@ -644,7 +694,7 @@
             if (justificativa) dadosPonto.justificativa = justificativa;
             Object.assign(dadosPonto, extras);
 
-            await docRef.set(dadosPonto, { merge: true });
+            await comRetryFirestore(() => docRef.set(dadosPonto, { merge: true }));
             debugLog(`Firestore: ponto salvo (${data}/${tipo}=${hora})`, 'ok');
         }
 
@@ -1005,10 +1055,10 @@
         // =========================================================================
         // 5. IMPORTAÇÃO EM LOTE DE COMPROVANTES (OCR AUTOMÁTICO EM FILA)
         // =========================================================================
-        let filaImportacao = [];      // itens: { id, dataURL, thumb, status, extraidos, selecoes, blob, erro, ... }
+        let filaImportacao = [];
         let processandoFilaOCR = false;
         let gravandoLote = false;
-        let estadoSimulado = {};      // dataStr -> { entrada, almocoSaida, almocoRetorno, saida } (banco + reservas da fila)
+        let estadoSimulado = {};
         let contadorItensFila = 0;
         let ocrWorker = null;
         let indiceComprovantes = {};
@@ -1038,7 +1088,6 @@
             });
         }
 
-        // Miniatura leve para a UI (evita dezenas de imagens grandes na memória do DOM)
         function gerarThumb(dataURL, maxLado = 160) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -1055,7 +1104,6 @@
             });
         }
 
-        // ENTRADA DO LOTE: arquivos do input/drag/colagem
         async function receberArquivosLote(files) {
             if (!files || files.length === 0) return;
             const lista = Array.from(files).filter(f => f.type && f.type.startsWith('image/'));
@@ -1112,10 +1160,9 @@
             }
 
             renderizarFila();
-            processarFilaOCR(); // dispara a leitura sequencial (fire-and-forget)
+            processarFilaOCR();
         }
 
-        // Drag & drop e Ctrl+V (agora múltiplos)
         const dz = document.getElementById('dropzone');
         dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('border-blue-400', 'bg-blue-50'); });
         dz.addEventListener('dragleave', () => { dz.classList.remove('border-blue-400', 'bg-blue-50'); });
@@ -1154,10 +1201,12 @@
                 }
                 const worker = await obterWorkerOCR();
 
-                // Loop dinâmico: novos itens adicionados durante o processamento também entram
                 while (true) {
                     const item = filaImportacao.find(i => i.status === 'aguardando');
                     if (!item) break;
+
+                    // Proteção contra reprocessamento duplicado
+                    if (item.status !== 'aguardando') continue;
 
                     const totalRestante = filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length;
                     const totalFila = filaImportacao.length;
@@ -1173,6 +1222,9 @@
                             120000,
                             'O OCR demorou demais (120s) neste item.'
                         );
+
+                        // Se o item saiu da fila ou mudou de status durante a leitura, não sobrescreve
+                        if (!filaImportacao.includes(item)) continue;
 
                         ultimoTextoOCR = resultado.data.text || '';
                         document.getElementById('debug-ocr-texto').innerText = ultimoTextoOCR || '(texto vazio!)';
@@ -1204,7 +1256,6 @@
             } catch (e) {
                 debugLog(`Fila OCR interrompida: ${e.message}`, 'erro');
                 alert('⚠️ ' + e.message);
-                // itens que ainda estavam aguardando viram falha para não ficar eternamente pendentes
                 filaImportacao.forEach(i => {
                     if (i.status === 'aguardando' || i.status === 'lendo') {
                         i.status = 'falhou';
@@ -1216,7 +1267,7 @@
                 processandoFilaOCR = false;
                 atualizarStatusOCRGeral('', 0, 0, true);
                 renderizarFila();
-                prepararBlobsBackground(); // pré-compressão das imagens em 2º plano
+                prepararBlobsBackground();
             }
         }
 
@@ -1233,14 +1284,13 @@
             barra.style.width = Math.max(2, pct) + '%';
         }
 
-        // Sugestão de tipo considerando o banco + reservas de outros itens da mesma fila
         async function sugerirTipoParaItem(item) {
             const d = item.selecoes.data;
             if (!d) { item.selecoes.tipo = 'Entrada'; return; }
 
             if (!estadoSimulado[d]) {
                 try {
-                    const snap = await comTimeout(colecaoPontos.doc(d).get(), 15000, 'Consulta ao banco demorou (15s)');
+                    const snap = await comRetryFirestore(() => comTimeout(colecaoPontos.doc(d).get(), 15000, 'Consulta ao banco demorou (15s)'));
                     const dia = snap.exists ? snap.data() : {};
                     estadoSimulado[d] = {
                         entrada: dia.entrada || null,
@@ -1268,7 +1318,6 @@
             if (item.campoReservado) est[item.campoReservado] = 'RESERVADO_FILA';
         }
 
-        // Pré-compressão adaptativa (~200KB) de todos os itens lidos, em 2º plano
         async function prepararBlobsBackground() {
             for (const item of filaImportacao) {
                 if (item.blob || item.status !== 'lido') continue;
@@ -1356,7 +1405,6 @@
             lista.innerHTML = '';
             filaImportacao.forEach(item => lista.appendChild(criarCardItem(item)));
 
-            // Botão de confirmar: mostra quantidade e fica desabilitado se não houver itens prontos
             if (lidos > 0 && !gravandoLote) {
                 acoes.classList.remove('hidden');
                 btnConfirmar.innerText = `💾 Confirmar TODOS (${lidos})`;
@@ -1376,14 +1424,12 @@
 
             let conteudo = '';
 
-            // Miniatura
             if (item.thumb) {
                 conteudo += `<img src="${item.thumb}" class="w-20 h-28 object-cover rounded-lg border border-gray-200 cursor-pointer shrink-0" alt="Print ${item.id}" onclick="visualizarImagemFila('${item.id}')">`;
             } else {
                 conteudo += `<div class="w-20 h-28 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center text-2xl shrink-0">🖼️</div>`;
             }
 
-            // Corpo conforme status
             if (item.status === 'aguardando') {
                 conteudo += `
                     <div class="flex-1 flex items-center">
@@ -1409,7 +1455,6 @@
                 const d = item.extraidos || {};
                 const idD = `fd-${item.id}`, idH = `fh-${item.id}`, idT = `ft-${item.id}`, idJ = `fj-${item.id}`;
 
-                // Aviso de substituição (dia já tem este tipo no banco)
                 let avisoSub = '';
                 const est = estadoSimulado[item.selecoes.data];
                 const campo = MAPA_TIPO_CAMPO[item.selecoes.tipo];
@@ -1420,13 +1465,11 @@
                     avisoSub += `<div class="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-1">⚠️ Este dia já possui os 4 pontos no banco — a gravação substituirá um deles.</div>`;
                 }
 
-                // Aviso de data fora do período
                 let avisoFora = '';
                 if (item.selecoes.data && !dentroPeriodoBanco(item.selecoes.data)) {
                     avisoFora = `<div class="text-[10px] font-bold text-gray-600 bg-gray-100 border border-gray-300 rounded px-2 py-1">🚫 Data FORA do período do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}) — salva no histórico, mas não computa p/ a meta.</div>`;
                 }
 
-                // Aviso de campos vazios
                 let avisoVazio = '';
                 if (!item.selecoes.data || !item.selecoes.hora) {
                     const faltando = [];
@@ -1435,7 +1478,6 @@
                     avisoVazio = `<div class="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-1">⚠️ OCR não detectou: ${faltando.join(' e ')} — preencha manualmente (obrigatório p/ confirmar).</div>`;
                 }
 
-                // Chips de detecções alternativas
                 let chips = '';
                 const chipsLista = [];
                 (d.datasAlt || []).forEach(dt => chipsLista.push({ label: '📅 ' + formatarDataBR(dt), campo: 'data', valor: dt }));
@@ -1443,7 +1485,7 @@
                 if (chipsLista.length > 0) {
                     chips = `<div class="flex flex-wrap items-center gap-1">
                         <span class="text-[10px] font-semibold text-gray-400">Outras detecções:</span>
-                        ${chipsLista.map((c, idx) => `<button type="button" class="text-[10px] bg-white border border-gray-300 hover:border-blue-400 hover:text-blue-600 px-2 py-0.5 rounded-full transition" onclick="aplicarChipItem('${item.id}', '${c.campo}', '${c.valor}')">${c.label}</button>`).join('')}
+                        ${chipsLista.map((c) => `<button type="button" class="text-[10px] bg-white border border-gray-300 hover:border-blue-400 hover:text-blue-600 px-2 py-0.5 rounded-full transition" onclick="aplicarChipItem('${item.id}', '${c.campo}', '${c.valor}')">${c.label}</button>`).join('')}
                     </div>`;
                 }
 
@@ -1494,7 +1536,7 @@
             } else if (item.status === 'gravando') {
                 conteudo += `
                     <div class="flex-1 flex items-center">
-                        <span class="text-xs text-blue-600 font-semibold animate-pulse">💾 ${item.erro || 'gravando no banco de dados...'}</span>
+                        <span class="status-gravando-texto text-xs text-blue-600 font-semibold animate-pulse">💾 ${item.erro || 'gravando no banco de dados...'}</span>
                     </div>`;
             }
 
@@ -1503,18 +1545,16 @@
         }
 
         function atualizarCardItem(itemId) {
-            const idx = filaImportacao.findIndex(i => i.id === itemId);
-            if (idx < 0) return;
-            const item = filaImportacao[idx];
+            const item = filaImportacao.find(i => i.id === itemId);
+            if (!item) return;
             const cardExistente = document.getElementById(`card-${itemId}`);
             if (cardExistente) {
                 const novoCard = criarCardItem(item);
                 cardExistente.replaceWith(novoCard);
             }
-            renderizarFila(); // atualiza contagem/status geral/botões
+            renderizarFila();
         }
 
-        // ---- Edição dos itens da fila ----
         function liberarReserva(item) {
             if (item.campoReservado && item.selecoes.data && estadoSimulado[item.selecoes.data]) {
                 const est = estadoSimulado[item.selecoes.data];
@@ -1530,7 +1570,6 @@
             if (!item) return;
             liberarReserva(item);
             item.selecoes.data = novaData;
-            // Re-sugere o tipo para a nova data
             sugerirTipoParaItem(item).then(() => renderizarFila());
         }
 
@@ -1549,7 +1588,7 @@
             if (item.selecoes.data && estadoSimulado[item.selecoes.data]) {
                 estadoSimulado[item.selecoes.data][item.campoReservado] = 'RESERVADO_FILA';
             }
-            renderizarFila(); // atualiza avisos de substituição
+            renderizarFila();
         }
 
         function aplicarChipItem(itemId, campo, valor) {
@@ -1600,7 +1639,6 @@
             document.getElementById('modal-img').src = '';
         }
 
-        // Alias para o histórico (mesmo modal)
         async function verComprovanteHistorico(dataStr) {
             const info = indiceComprovantes[dataStr];
             if (!info) return;
@@ -1608,7 +1646,9 @@
             let url = info.url;
             if (!url && info.id) {
                 try {
-                    const doc = await colecaoPontos.doc(dataStr).collection('comprovantes').doc(info.id).get();
+                    const doc = await comRetryFirestore(() =>
+                        colecaoPontos.doc(dataStr).collection('comprovantes').doc(info.id).get()
+                    );
                     url = doc.exists ? doc.data().base64 : null;
                 } catch (e) {
                     debugLog(`Erro ao buscar comprovante de ${dataStr}: ${e.message}`, 'erro');
@@ -1652,7 +1692,6 @@
                 return;
             }
 
-            // Validação: todos os itens precisam de data e hora
             const semDados = itensLidos.filter(i => !i.selecoes.data || !i.selecoes.hora);
             if (semDados.length > 0) {
                 alert(`⚠️ ${semDados.length} item(ns) estão sem Data e/ou Horário.\n\nPreencha manualmente nos cards da fila (ou remova os itens) antes de confirmar.`);
@@ -1661,17 +1700,17 @@
                 return;
             }
 
-            if (!confirm(`Confirma a importação de ${itensLidos.length} comprovante(s)?\n\nItens duplicados serão pulados automaticamente.`)) return;
+            if (!confirm(`Confirma a importação de ${itensLidos.length} comprovante(s)?\n\nItens duplicados serão pulados automaticamente.\nSe alguma imagem falhar, o PONTO será gravado mesmo assim (a imagem é complementar).`)) return;
 
             gravandoLote = true;
             renderizarFila();
 
-            const resultados = { ok: [], pulados: [], erros: [] };
+            const resultados = { ok: [], pulados: [], erros: [], semImagem: [] };
             const total = itensLidos.length;
 
             for (let idx = 0; idx < total; idx++) {
                 const item = itensLidos[idx];
-                if (!filaImportacao.includes(item)) continue; // removido no meio do processo
+                if (!filaImportacao.includes(item)) continue;
 
                 item.status = 'gravando';
                 item.erro = `gravando item ${idx + 1} de ${total}...`;
@@ -1680,10 +1719,13 @@
 
                 try {
                     const desfecho = await gravarItemLote(item, idx + 1, total);
-                    if (desfecho === 'pulada') {
+                    if (desfecho.desfecho === 'pulada') {
                         resultados.pulados.push(item);
                     } else {
                         resultados.ok.push(item);
+                        if (desfecho.avisoImagem) {
+                            resultados.semImagem.push({ item, motivo: desfecho.avisoImagem });
+                        }
                     }
                 } catch (e) {
                     resultados.erros.push({ item, motivo: e.message });
@@ -1694,12 +1736,11 @@
             gravandoLote = false;
             atualizarStatusGravacao('', 0, 0, true);
 
-            // Remove da fila apenas os gravados com sucesso; os demais permanecem com marcação
             filaImportacao = filaImportacao.filter(i => !resultados.ok.includes(i));
             resultados.pulados.forEach(i => { i.status = 'falhou'; i.erro = 'PULADO: comprovante duplicado (mesma Identificação ou mesmo tipo + horário já registrado no dia).'; });
             resultados.erros.forEach(r => { r.item.status = 'falhou'; r.item.erro = 'Erro na gravação: ' + r.motivo; });
 
-            estadoSimulado = {}; // força recarga do estado real na próxima leitura
+            estadoSimulado = {};
             renderizarFila();
             mostrarResumoLote(resultados);
             carregarHistorico();
@@ -1714,27 +1755,32 @@
             const identificacao = item.extraidos ? (item.extraidos.identificacao || '') : '';
             const campoTipo = MAPA_TIPO_CAMPO[tipo];
 
-            // Proteções anti-duplicidade (reais, contra o banco)
-            const snap = await comTimeout(colecaoPontos.doc(dataStr).get(), 20000, 'Consulta ao banco demorou (20s)');
+            // Proteções anti-duplicidade (consulta com retry de rede)
+            const snap = await comRetryFirestore(() =>
+                comTimeout(colecaoPontos.doc(dataStr).get(), 20000, 'Consulta ao banco demorou (20s)')
+            );
             if (snap.exists) {
                 const d = snap.data();
                 if (identificacao && d.identificacao && d.identificacao === identificacao) {
                     debugLog(`Item ${item.id} pulado: mesma Identificação de Marcação`, 'warn');
-                    return 'pulada';
+                    return { desfecho: 'pulada' };
                 }
                 if (d[campoTipo] === horaStr) {
                     debugLog(`Item ${item.id} pulado: ${tipo} já existe às ${horaStr} em ${dataStr}`, 'warn');
-                    return 'pulada';
+                    return { desfecho: 'pulada' };
                 }
             }
 
-            // Envio da imagem (blob pré-comprimido se disponível)
+            // CORRIGIDO: a imagem NUNCA mais bloqueia o ponto.
+            // Se Storage e Firestore falharem, o ponto é gravado sem imagem (com aviso).
             let extras = { identificacao: identificacao, origem: 'comprovante' };
+            let avisoImagem = null;
+
             const resultadoImg = await enviarImagemItem(item, dataStr, (pct) => {
                 item.erro = `gravando item ${atual}/${total} — imagem ${pct}%`;
                 const card = document.getElementById(`card-${item.id}`);
                 if (card) {
-                    const span = card.querySelector('.text-blue-600.font-semibold');
+                    const span = card.querySelector('.status-gravando-texto');
                     if (span) span.innerText = `💾 enviando imagem ${pct}%...`;
                 }
             });
@@ -1743,15 +1789,21 @@
                 extras.comprovanteUrl = resultadoImg.url;
                 extras.comprovantePath = resultadoImg.path;
             } else if (resultadoImg.ok) {
-                extras.comprovanteId = await salvarImagemFirestore(dataStr, resultadoImg.base64, identificacao);
+                try {
+                    extras.comprovanteId = await salvarImagemFirestore(dataStr, resultadoImg.base64, identificacao);
+                } catch (e) {
+                    avisoImagem = `imagem não salva (falha no Firestore após retries): ${e.message}`;
+                    debugLog(`Item ${item.id}: ${avisoImagem} — ponto será gravado sem imagem`, 'warn');
+                }
             } else {
-                debugLog(`Item ${item.id}: imagem não salva (${resultadoImg.motivo}) — gravando ponto sem imagem`, 'warn');
+                avisoImagem = `imagem não salva: ${resultadoImg.motivo}`;
+                debugLog(`Item ${item.id}: ${avisoImagem} — ponto será gravado sem imagem`, 'warn');
             }
 
-            // Gravação do ponto
+            // Gravação do ponto — SEMPRE executa (com retry de rede)
             await gravarPontoFirestore(dataStr, horaStr, tipo, justificativa, extras);
             debugLog(`Item ${item.id} gravado: ${dataStr} ${tipo}=${horaStr}`, 'ok');
-            return 'ok';
+            return { desfecho: 'ok', avisoImagem };
         }
 
         async function enviarImagemItem(item, dataStr, onProgresso) {
@@ -1763,7 +1815,8 @@
             }
             if (!blob) return { ok: false, motivo: 'falha ao comprimir a imagem' };
 
-            if (storagePontos) {
+            // Storage — apenas se ativo na sessão (desativa após 1ª falha estrutural)
+            if (storagePontos && !storageDesativadoSessao) {
                 try {
                     const caminho = `comprovantes/${dataStr}/${Date.now()}.jpg`;
                     const ref = storagePontos.ref().child(caminho);
@@ -1773,27 +1826,49 @@
                             onProgresso(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
                         }
                     });
-                    await comTimeout(task, 60000, 'Upload no Storage demorou (60s)');
+                    // REDUZIDO: 60s → 25s (34KB não deveria levar mais que isso; bucket inexistente trava até timeout)
+                    await comTimeout(task, 25000, 'Upload no Storage demorou (25s)');
                     const url = await task.snapshot.ref.getDownloadURL();
                     debugLog(`Imagem ${item.id} salva no Storage: ${caminho} (~${Math.round(blob.size / 1024)} KB)`, 'ok');
                     return { ok: true, storage: true, url, path: caminho, kb: Math.round(blob.size / 1024) };
                 } catch (e) {
-                    debugLog(`Storage falhou p/ ${item.id} (${e.code || ''} ${e.message}) — fallback Firestore`, 'warn');
+                    debugLog(`Storage falhou p/ ${item.id} (${e.code || ''} ${e.message}) — desativando Storage nesta sessão e usando fallback Firestore`, 'warn');
+                    storageDesativadoSessao = true;
                 }
+            } else if (storageDesativadoSessao) {
+                debugLog(`Item ${item.id}: Storage desativado nesta sessão — indo direto ao fallback Firestore`, 'info');
             }
 
-            // Fallback: base64 na subcoleção
-            if (onProgresso) onProgresso(50);
-            let dataURL = await blobParaDataURL(blob);
-            if (dataURL.length > 900000) {
-                const menor = await comprimirParaBlob(item.dataURL, 600, 0.45);
-                if (menor) dataURL = await blobParaDataURL(menor);
+            // Fallback: base64 na subcoleção do dia (imagem de ~34KB vira ~46KB em base64 — seguro p/ documento)
+            try {
+                if (onProgresso) onProgresso(60);
+                let dataURL = await blobParaDataURL(blob);
+                if (dataURL.length > 950000) {
+                    const menor = await comprimirParaBlob(item.dataURL, 600, 0.45);
+                    if (menor) dataURL = await blobParaDataURL(menor);
+                }
+                if (onProgresso) onProgresso(90);
+                if (dataURL.length > 950000) {
+                    return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
+                }
+                return { ok: true, storage: false, base64: dataURL, kb: Math.round(dataURL.length / 1024) };
+            } catch (e) {
+                return { ok: false, motivo: 'falha ao converter imagem: ' + e.message };
             }
-            if (onProgresso) onProgresso(85);
-            if (dataURL.length > 950000) {
-                return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
-            }
-            return { ok: true, storage: false, base64: dataURL, kb: Math.round(dataURL.length / 1024) };
+        }
+
+        // CORRIGIDO: função estava AUSENTE na versão de lote (causava "salvarImagemFirestore is not defined").
+        // Agora com retry de rede integrado.
+        async function salvarImagemFirestore(dataStr, base64, identificacao) {
+            const docComp = await comRetryFirestore(() =>
+                colecaoPontos.doc(dataStr).collection('comprovantes').add({
+                    base64: base64,
+                    identificacao: identificacao || null,
+                    criadoEm: Date.now()
+                })
+            );
+            debugLog(`Imagem salva no Firestore (doc ${docComp.id})`, 'ok');
+            return docComp.id;
         }
 
         function atualizarStatusGravacao(texto, atual, total, esconder = false) {
@@ -1816,11 +1891,18 @@
             const totalOk = resultados.ok.length;
             const totalPul = resultados.pulados.length;
             const totalErr = resultados.erros.length;
+            const totalSemImg = resultados.semImagem.length;
 
             if (totalOk > 0) {
                 linhas.push(`<div class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2">✅ <strong>${totalOk} comprovante(s) importado(s) com sucesso!</strong></div>`);
                 resultados.ok.forEach(i => {
                     linhas.push(`<div class="text-gray-600 pl-2">• ${formatarDataBR(i.selecoes.data)} — ${i.selecoes.tipo} às ${i.selecoes.hora}</div>`);
+                });
+            }
+            if (totalSemImg > 0) {
+                linhas.push(`<div class="text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-1">🖼️ <strong>${totalSemImg} ponto(s) gravado(s) SEM a imagem</strong> (a falha foi só no anexo — os horários estão salvos):</div>`);
+                resultados.semImagem.forEach(r => {
+                    linhas.push(`<div class="text-gray-600 pl-2">• ${formatarDataBR(r.item.selecoes.data)} ${r.item.selecoes.tipo} — ${r.motivo}</div>`);
                 });
             }
             if (totalPul > 0) {
@@ -1842,14 +1924,6 @@
         // =========================================================================
         // 5.1 OCR (worker compartilhado da fila)
         // =========================================================================
-        const STATUS_OCR_PT = {
-            'loading tesseract core': 'Baixando motor de OCR',
-            'initializing tesseract': 'Inicializando motor',
-            'loading language traineddata': 'Baixando idioma (português) — só na primeira vez',
-            'initializing api': 'Preparando leitura',
-            'recognizing text': '🔎 Lendo o comprovante'
-        };
-
         async function obterWorkerOCR() {
             if (ocrWorker) return ocrWorker;
             if (typeof Tesseract === 'undefined') {
@@ -1858,12 +1932,7 @@
             debugLog('Criando worker do OCR (idioma: por)...', 'info');
             ocrWorker = await comTimeout(
                 Tesseract.createWorker('por', 1, {
-                    logger: (m) => {
-                        const rotulo = STATUS_OCR_PT[m.status] || m.status;
-                        if (m.status === 'recognizing text' && typeof m.progress === 'number') {
-                            // progresso individual aparece no card via status geral da fila
-                        }
-                    }
+                    logger: (m) => { /* progresso tratado pelo status geral da fila */ }
                 }),
                 120000,
                 'O motor de OCR demorou demais para iniciar (120s). Verifique a internet e tente de novo.'
