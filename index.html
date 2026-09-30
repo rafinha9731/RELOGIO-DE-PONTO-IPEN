@@ -333,8 +333,9 @@
         }
         function fecharDebug() { document.getElementById('modal-debug').classList.add('hidden'); }
 
+        // CORRIGIDO: referencia o objeto de configuração (a URL NUNCA vai direto no código)
         function provedorAtivoImagens() {
-            if (https://bcbcwbzgtjscbwucyeou.supabase.co && sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM) return 'Supabase (configurado)';
+            if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) return 'Supabase (configurado)';
             if (CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset) return 'Cloudinary (configurado)';
             if (storagePontos) return 'Firebase Storage';
             return 'Firestore (fallback base64)';
@@ -449,7 +450,7 @@
             }
         }
 
-        // Teste da cadeia de armazenamento de imagens (Supabase → Cloudinary → Firebase Storage)
+        // Teste da cadeia de armazenamento de imagens (Supabase → Firebase Storage)
         async function testarStorageImagens() {
             const saida = document.getElementById('debug-testes');
             saida.innerHTML += `<div class="text-teal-300">🧪 Testando provedor de imagens: ${provedorAtivoImagens()}...</div>`;
@@ -459,25 +460,26 @@
             canvas.width = 50; canvas.height = 50;
             const blobTeste = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.5));
 
-            if (https://bcbcwbzgtjscbwucyeou.supabase.co && sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM) {
+            // CORRIGIDO: usa SUPABASE_CONFIG (não colar URL direto no código!)
+            if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) {
                 try {
                     const caminho = `_debug_teste/${Date.now()}.jpg`;
                     const t0 = performance.now();
                     const resp = await comTimeout(fetch(
-                        `${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`,
+                        `${SUPABASE_CONFIG.url}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`,
                         {
                             method: 'POST',
                             headers: {
-                                'Authorization': `Bearer ${sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM}`,
+                                'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
                                 'Content-Type': 'image/jpeg'
                             },
                             body: blobTeste
                         }
                     ), 25000, 'Supabase demorou (25s)');
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text().catch(() => resp.statusText)}`);
-                    await fetch(`${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`, {
+                    await fetch(`${SUPABASE_CONFIG.url}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`, {
                         method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM}` }
+                        headers: { 'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}` }
                     }).catch(() => {});
                     const ms = Math.round(performance.now() - t0);
                     saida.innerHTML += `<div class="text-emerald-400">✅ Supabase OK (${ms}ms).</div>`;
@@ -485,6 +487,7 @@
                     return;
                 } catch (e) {
                     saida.innerHTML += `<div class="text-rose-400">❌ Supabase falhou: ${e.message}</div>`;
+                    saida.innerHTML += `<div class="text-amber-400">💡 Confira: bucket "comprovantes" existe? Está marcado como PUBLIC? A política anon permite INSERT?</div>`;
                     debugLog(`Teste Supabase falhou: ${e.message}`, 'erro');
                 }
             }
@@ -578,33 +581,23 @@
         const BANCO_FIM    = '2026-12-11';
 
         // =====================================================================
-        // NOVO: ARMAZENAMENTO DE IMAGENS EXTERNO (grátis, sem cartão)
+        // ARMAZENAMENTO DE IMAGENS EXTERNO (grátis, sem cartão)
         //
-        // OPÇÃO 1 — SUPABASE (recomendado):
-        //   1. Crie conta grátis em supabase.com (não pede cartão)
-        //   2. Crie um projeto → anote a "Project URL" (ex: https://xxxx.supabase.co)
-        //   3. Storage → New bucket → nome: "comprovantes" → marque PUBLIC bucket
-        //   4. Ainda em Policies do bucket, crie política: Allow INSERT for anon
-        //   5. Project Settings → API → copie a "anon public key"
-        //   6. Cole os dois valores abaixo
+        // CORRIGIDO: a URL e a chave do Supabase vão APENAS aqui dentro,
+        // entre aspas simples. O resto do código usa SUPABASE_CONFIG.url e
+        // SUPABASE_CONFIG.anonKey — nunca copie a URL para outras partes!
         //
-        // OPÇÃO 2 — CLOUDINARY:
-        //   1. Crie conta grátis em cloudinary.com (não pede cartão)
-        //   2. Settings → Upload → "Add upload preset" → Signing Mode: Unsigned → salve
-        //   3. Anote o "Cloud name" (Dashboard) e o nome do preset criado
-        //   4. Preencha CLOUDINARY_CONFIG abaixo
-        //
-        // Deixe as duas vazias para usar Firestore base64 (funciona sem nada).
+        // Deixe vazio para usar Firestore base64 (funciona sem nada).
         // =====================================================================
         const SUPABASE_CONFIG = {
-            url: '',       // ex: 'https://abcdefghij.supabase.co'  (SEM barra final)
-            anonKey: '',   // ex: 'eyJhbGciOiJIUzI1NiIsInR5cCI6...' (chave anon public)
+            url: 'https://bcbcwbzgtjscbwucyeou.supabase.co',
+            anonKey: 'sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM',
             bucket: 'comprovantes'
         };
 
         const CLOUDINARY_CONFIG = {
-            cloudName: '',      // ex: 'meucloud123'
-            uploadPreset: ''    // ex: 'comprovantes_preset'
+            cloudName: '',
+            uploadPreset: ''
         };
 
         let db;
@@ -614,8 +607,8 @@
         let bancoTotalAtual = 0;
         let ritmoAtualMinDia = null;
         let storageDesativadoSessao = false;
-        let supabaseDesativadoSessao = false;   // NOVO
-        let cloudinaryDesativadoSessao = false; // NOVO
+        let supabaseDesativadoSessao = false;
+        let cloudinaryDesativadoSessao = false;
 
         try {
             if (typeof firebase === 'undefined') {
@@ -1272,7 +1265,6 @@
                 while (true) {
                     const item = filaImportacao.find(i => i.status === 'aguardando');
                     if (!item) break;
-                    if (item.status !== 'aguardando') continue;
 
                     const totalRestante = filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length;
                     const totalFila = filaImportacao.length;
@@ -1871,7 +1863,7 @@
         }
 
         // =====================================================================
-        // CADEIA DE ARMAZENAMENTO DE IMAGENS (NOVO):
+        // CADEIA DE ARMAZENAMENTO DE IMAGENS:
         //   1. Supabase Storage (grátis, sem cartão) — se configurado
         //   2. Cloudinary (grátis, sem cartão)       — se configurado
         //   3. Firebase Storage                      — se disponível
@@ -1887,16 +1879,16 @@
             if (!blob) return { ok: false, motivo: 'falha ao comprimir a imagem' };
 
             // ---- 1. Supabase Storage (via REST — rápido, CORS liberado) ----
-            if (https://bcbcwbzgtjscbwucyeou.supabase.co && sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM && !supabaseDesativadoSessao) {
+            if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey && !supabaseDesativadoSessao) {
                 try {
                     const caminho = `${dataStr}/${Date.now()}.jpg`;
-                    const urlPublica = `${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/public/${SUPABASE_CONFIG.bucket}/${caminho}`;
+                    const urlPublica = `${SUPABASE_CONFIG.url}/storage/v1/object/public/${SUPABASE_CONFIG.bucket}/${caminho}`;
                     const resp = await comTimeout(fetch(
-                        `${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`,
+                        `${SUPABASE_CONFIG.url}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`,
                         {
                             method: 'POST',
                             headers: {
-                                'Authorization': `Bearer ${sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM}`,
+                                'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
                                 'Content-Type': 'image/jpeg',
                                 'x-upsert': 'false'
                             },
@@ -2087,9 +2079,8 @@
                 if (d.comprovantePath && storagePontos) {
                     await storagePontos.ref().child(d.comprovantePath).delete().catch(() => {});
                 }
-                // Cloudinary (deleção exige assinatura — fica no plano do limite de storage)
-                // Supabase: deleção exige chave service_role (não exposta no cliente) —
-                // imagens antigas podem ser limpadas manualmente no painel do Supabase.
+                // Nota: deleção no Supabase/Cloudinary exige chaves de admin (não expostas
+                // no navegador) — imagens lá podem ser limpas manualmente nos painéis.
 
                 // Firestore (fallback)
                 const comps = await colecaoPontos.doc(idData).collection('comprovantes').get();
