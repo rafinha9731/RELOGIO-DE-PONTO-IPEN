@@ -163,22 +163,22 @@
         <!-- ===================== ABA 2: IMPORTAR COMPROVANTE (tela inicial) ===================== -->
         <div id="aba-importar" class="space-y-6">
 
-            <!-- NOVO (DEBUG): faixa de diagnóstico rápido -->
+            <!-- DEBUG: faixa de diagnóstico rápido -->
             <div id="faixa-diagnostico" class="hidden text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3 flex items-center justify-between gap-2">
                 <span id="faixa-diagnostico-texto">⚠️ Um problema foi detectado. Abra o diagnóstico para ver os detalhes.</span>
                 <button onclick="abrirDebug()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap">🐞 Ver diagnóstico</button>
             </div>
 
-            <!-- PASSO 1: ENVIO DA IMAGEM -->
+            <!-- PASSO 1: ENVIO DA IMAGEM (OCR automático) -->
             <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
-                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">📸 Passo 1 — Enviar o print do comprovante</h3>
+                <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">📸 Passo 1 — Enviar o print (leitura automática)</h3>
 
                 <div id="dropzone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition" onclick="document.getElementById('input-imagem').click()">
                     <div class="text-4xl mb-2">🖼️</div>
                     <p class="text-sm font-semibold text-gray-600">
                         Clique, arraste ou cole (Ctrl+V) o print do comprovante
                     </p>
-                    <p class="text-xs text-gray-400 mt-1">Print da tela "Comprovante de marcação" (app Senior)</p>
+                    <p class="text-xs text-gray-400 mt-1">Print da tela "Comprovante de marcação" (app Senior) — a leitura dos dados é automática</p>
                 </div>
                 <input type="file" id="input-imagem" accept="image/*" class="hidden" onchange="receberArquivo(this.files); this.value = '';">
 
@@ -190,9 +190,10 @@
                             <div id="barra-progresso-container" class="hidden h-2 bg-gray-200 rounded-full overflow-hidden">
                                 <div id="barra-progresso" class="h-full bg-blue-600 transition-all duration-200" style="width: 0%"></div>
                             </div>
+                            <!-- ALTERADO: botão de leitura removido (OCR é automático). Fica só o "Tentar novamente" (aparece em falha) -->
                             <div class="flex flex-wrap gap-2">
-                                <button id="btn-processar" onclick="processarImagem()" disabled class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-sm px-4 py-2 rounded-lg transition shadow-sm">
-                                    🔍 Ler comprovante (OCR)
+                                <button id="btn-retry-ocr" onclick="processarImagem()" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2 rounded-lg transition shadow-sm">
+                                    🔄 Tentar leitura novamente
                                 </button>
                                 <button onclick="limparImportacao()" class="bg-white hover:bg-gray-100 border border-gray-300 text-gray-600 font-bold text-sm px-4 py-2 rounded-lg transition">
                                     Limpar
@@ -207,7 +208,6 @@
             <div id="passo-dados" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-4">
                 <h3 class="text-sm font-bold text-gray-700 flex items-center gap-1">✅ Passo 2 — Conferir e confirmar a importação</h3>
 
-                <!-- NOVO (DEBUG): alerta destacado quando OCR não detecta data/hora -->
                 <div id="alerta-campos-vazios" class="hidden text-xs font-bold text-amber-800 bg-amber-100 border-2 border-amber-300 rounded-lg p-3 leading-relaxed">
                     ⚠️ <strong>ATENÇÃO:</strong> o OCR não conseguiu preencher <span id="alerta-campos-lista">alguns campos</span>. Preencha <strong>manualmente</strong> nos campos abaixo antes de confirmar — senão a importação será bloqueada.
                 </div>
@@ -247,11 +247,22 @@
                     <input type="checkbox" id="import-salvar-imagem" checked class="mt-0.5 h-4 w-4">
                     <span>
                         <strong>🖼️ Salvar imagem do comprovante no Firebase</strong><br>
-                        <span class="text-gray-400">A imagem fica anexada ao registro do dia e pode ser visualizada pelo botão "Ver" no histórico. Se o Storage não estiver ativo, é salva compactada dentro do próprio Firestore (automático).</span>
+                        <span class="text-gray-400">A imagem já é comprimida em segundo plano e enviada em formato binário (mais rápido). Se o Storage não estiver ativo, é salva compactada dentro do próprio Firestore (automático).</span>
                     </span>
                 </label>
 
                 <div id="sugestoes-chips" class="flex flex-wrap items-center gap-1"></div>
+
+                <!-- NOVO: status/progresso do upload da imagem -->
+                <div id="status-upload" class="hidden text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <span id="status-upload-texto">⏳ Enviando imagem...</span>
+                        <span id="status-upload-pct" class="font-mono font-bold text-blue-600">0%</span>
+                    </div>
+                    <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div id="status-upload-barra" class="h-full bg-blue-600 transition-all duration-200" style="width:0%"></div>
+                    </div>
+                </div>
 
                 <button id="btn-confirmar-import" onclick="confirmarImportacao()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-sm px-6 py-2.5 rounded-lg transition shadow-sm">
                     💾 Confirmar Importação
@@ -288,7 +299,7 @@
         </div>
     </div>
 
-    <!-- ===================== NOVO (DEBUG): BOTÃO FLUTUANTE + MODAL DE DIAGNÓSTICO ===================== -->
+    <!-- ===================== DEBUG: BOTÃO FLUTUANTE + MODAL DE DIAGNÓSTICO ===================== -->
     <button id="btn-debug" onclick="abrirDebug()" title="Diagnóstico do sistema" class="fixed bottom-4 right-4 z-40 h-12 w-12 rounded-full bg-gray-800 hover:bg-gray-900 text-white shadow-lg flex items-center justify-center text-xl">
         🐞
         <span id="badge-erros-debug" class="hidden absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">0</span>
@@ -301,29 +312,24 @@
                 <button onclick="fecharDebug()" class="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">✕</button>
             </div>
 
-            <!-- Estado do ambiente -->
             <div id="debug-estado" class="text-[11px] font-mono bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1 mb-3"></div>
 
-            <!-- Testes rápidos -->
             <div class="flex flex-wrap gap-2 mb-3">
                 <button onclick="testarConexaoFirestore()" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg">🧪 Testar banco (Firestore)</button>
                 <button onclick="testarOCRInterno()" class="text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg">🧪 Testar OCR</button>
             </div>
             <div id="debug-testes" class="text-[11px] font-mono bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3 space-y-1"></div>
 
-            <!-- Ações -->
             <div class="flex flex-wrap gap-2 mb-3">
                 <button onclick="copiarDebug()" class="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg">📋 Copiar tudo (para enviar)</button>
                 <button onclick="limparDebug()" class="text-xs font-bold bg-white border border-gray-300 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg">🗑️ Limpar logs</button>
             </div>
 
-            <!-- Último texto OCR -->
             <details class="mb-3">
                 <summary class="text-xs font-bold text-gray-600 cursor-pointer">🔍 Último texto lido pelo OCR</summary>
                 <pre id="debug-ocr-texto" class="text-[10px] font-mono bg-gray-900 text-gray-100 rounded-lg p-3 mt-2 max-h-48 overflow-auto whitespace-pre-wrap">— nenhum ainda —</pre>
             </details>
 
-            <!-- Log de eventos -->
             <div class="text-xs font-bold text-gray-600 mb-1">Registro de eventos (mais recente no topo):</div>
             <div id="debug-logs" class="text-[10px] font-mono bg-gray-900 text-gray-100 rounded-lg p-3 max-h-64 overflow-auto space-y-0.5"></div>
         </div>
@@ -331,7 +337,7 @@
 
     <script>
         // =========================================================================
-        // 0. NOVO: SISTEMA DE DEBUG / DIAGNÓSTICO
+        // 0. SISTEMA DE DEBUG / DIAGNÓSTICO
         // =========================================================================
         let debugLogs = [];
         let ultimoTextoOCR = '';
@@ -376,6 +382,7 @@
                 ['Firebase Storage (imagens)', storagePontos ? '✅ disponível' : '⚠️ indisponível (usa fallback no Firestore)'],
                 ['Conexão de rede', navigator.onLine ? '✅ online' : '❌ OFFLINE'],
                 ['Imagem carregada', imagemAtual ? `✅ ~${Math.round(imagemAtual.length / 1024)} KB` : '— nenhuma'],
+                ['Blob p/ upload pronto', blobUploadPronto ? `✅ ~${Math.round(blobUploadPronto.size / 1024)} KB (pré-comprimido)` : '— ainda preparando'],
                 ['Meta / Período', `${META_FOLGA_NATAL_MIN / 60}h • ${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}`],
                 ['Navegador', navigator.userAgent.substring(0, 90) + '...'],
                 ['Tela', `${window.innerWidth}×${window.innerHeight}px`]
@@ -398,7 +405,6 @@
                 await navigator.clipboard.writeText(texto);
                 alert('✅ Diagnóstico copiado! Cole e envie para análise.');
             } catch (e) {
-                // Fallback para iOS/navegadores antigos
                 const ta = document.createElement('textarea');
                 ta.value = texto;
                 document.body.appendChild(ta);
@@ -423,7 +429,6 @@
             debugLog('Logs limpos pelo usuário', 'info');
         }
 
-        // Captura QUALQUER erro JS não tratado (crucial p/ descobrir falhas no celular)
         window.addEventListener('error', (e) => {
             debugLog(`Erro JS: ${e.message} (linha ${e.lineno})`, 'erro');
         });
@@ -431,7 +436,6 @@
             debugLog(`Promessa rejeitada não tratada: ${e.reason}`, 'erro');
         });
 
-        // Timeout genérico — evita travamento eterno no mobile
         function comTimeout(promessa, ms, mensagem) {
             let timer;
             const rejeita = new Promise((_, reject) => {
@@ -440,7 +444,6 @@
             return Promise.race([promessa, rejeita]).finally(() => clearTimeout(timer));
         }
 
-        // Teste completo de escrita/leitura no Firestore
         async function testarConexaoFirestore() {
             const saida = document.getElementById('debug-testes');
             saida.innerHTML += `<div class="text-blue-300">🧪 Testando Firestore...</div>`;
@@ -462,7 +465,6 @@
             }
         }
 
-        // Teste do pipeline de OCR com imagem gerada localmente
         async function testarOCRInterno() {
             const saida = document.getElementById('debug-testes');
             saida.innerHTML += `<div class="text-purple-300">🧪 Testando OCR com imagem de teste...</div>`;
@@ -526,15 +528,10 @@
 
         const NOME_COLECAO = "PontoEletronicoRafael";
 
-        // Jornada obrigatória diária (8h = 480 min) — base do banco de horas
         const JORNADA_DIARIA_MIN = 480;
-
-        // Meta de horas acumuladas para a folga de Natal (24h = 1440 min)
         const META_FOLGA_NATAL_MIN = 24 * 60;
-
-        // Janela válida do banco de horas (inclusiva) — só dias nesse intervalo contam
-        const BANCO_INICIO = '2026-10-01'; // 01/10/2026
-        const BANCO_FIM    = '2026-12-11'; // 11/12/2026
+        const BANCO_INICIO = '2026-10-01';
+        const BANCO_FIM    = '2026-12-11';
 
         let db;
         let colecaoPontos;
@@ -1043,11 +1040,13 @@
         }
 
         // =========================================================================
-        // 5. IMPORTAÇÃO DE COMPROVANTE (OCR) — com debug instrumentado
+        // 5. IMPORTAÇÃO DE COMPROVANTE — OCR AUTOMÁTICO + UPLOAD OTIMIZADO
         // =========================================================================
         let imagemAtual = null;
         let ocrWorker = null;
         let indiceComprovantes = {};
+        let blobUploadPronto = null;  // NOVO: imagem pré-comprimida (Blob) pronta para envio
+        let pipelineId = 0;           // NOVO: controla corridas (imagem nova cancela pipeline anterior)
 
         function receberArquivo(files) {
             if (!files || files.length === 0) return;
@@ -1068,7 +1067,6 @@
             reader.readAsDataURL(file);
         }
 
-        // NOVO: verifica se o navegador CONSEGUE decodificar a imagem (pega problema de HEIC etc.)
         function testarDecodificacao(dataURL) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -1078,34 +1076,50 @@
             });
         }
 
+        // ALTERADO: ao receber a imagem, dispara automaticamente o pipeline:
+        // OCR (para preencher os campos) + pré-compressão (para o upload) em paralelo.
         async function definirImagem(dataURL) {
+            const meuPipeline = ++pipelineId;
+            blobUploadPronto = null;
             debugLog(`Imagem em memória: ~${Math.round(dataURL.length / 1024)} KB (base64)`, 'info');
 
             const teste = await testarDecodificacao(dataURL);
             if (!teste.ok) {
-                debugLog('Navegador NÃO conseguiu decodificar a imagem (formato possivelmente HEIC/inegociável)', 'erro');
+                debugLog('Navegador NÃO conseguiu decodificar a imagem (formato possivelmente HEIC)', 'erro');
                 alert('❌ Seu navegador não conseguiu abrir esta imagem.\n\nIsso acontece com fotos em formato HEIC (iPhone) ou arquivos corrompidos.\n\nSolução: tire um NOVO print da tela (prints são PNG/JPEG e funcionam) em vez de escolher a foto da galeria.');
-                document.getElementById('btn-processar').disabled = true;
-            } else {
-                debugLog(`Imagem decodificada OK: ${teste.w}×${teste.h}px`, 'ok');
+                return;
             }
+            debugLog(`Imagem decodificada OK: ${teste.w}×${teste.h}px`, 'ok');
 
             imagemAtual = dataURL;
             document.getElementById('preview-imagem').src = dataURL;
             document.getElementById('preview-container').classList.remove('hidden');
-            document.getElementById('btn-processar').disabled = !teste.ok;
+            document.getElementById('btn-retry-ocr').classList.add('hidden');
             document.getElementById('status-ocr').classList.add('hidden');
             document.getElementById('barra-progresso-container').classList.add('hidden');
+            document.getElementById('passo-dados').classList.add('hidden');
+            document.getElementById('status-upload').classList.add('hidden');
+
+            // OTIMIZAÇÃO: pré-compressão roda em paralelo ao OCR (CPU vs rede).
+            // Quando o usuário confirmar, o arquivo já estará pronto — só falta o envio.
+            prepararBlobUpload(meuPipeline);
+
+            // OCR AUTOMÁTICO (sem botão)
+            processarImagem();
         }
 
         function limparImportacao() {
+            pipelineId++; // invalida pipelines em andamento
             imagemAtual = null;
+            blobUploadPronto = null;
             document.getElementById('input-imagem').value = '';
             document.getElementById('preview-container').classList.add('hidden');
             document.getElementById('preview-imagem').src = '';
             document.getElementById('status-ocr').classList.add('hidden');
             document.getElementById('barra-progresso-container').classList.add('hidden');
             document.getElementById('passo-dados').classList.add('hidden');
+            document.getElementById('btn-retry-ocr').classList.add('hidden');
+            document.getElementById('status-upload').classList.add('hidden');
             ['import-data', 'import-hora', 'import-justificativa', 'import-identificacao'].forEach(id => {
                 document.getElementById(id).value = '';
             });
@@ -1149,6 +1163,25 @@
             } else {
                 barraContainer.classList.remove('hidden');
                 barra.style.width = Math.max(2, Math.min(100, progresso)) + '%';
+            }
+        }
+
+        function atualizarStatusUpload(texto, pct = null, cor = 'bg-blue-600') {
+            const container = document.getElementById('status-upload');
+            const textoEl = document.getElementById('status-upload-texto');
+            const pctEl = document.getElementById('status-upload-pct');
+            const barra = document.getElementById('status-upload-barra');
+            container.classList.remove('hidden');
+            textoEl.innerText = texto;
+            if (pct === null) {
+                pctEl.classList.add('hidden');
+                barra.classList.add('hidden');
+            } else {
+                pctEl.classList.remove('hidden');
+                barra.classList.remove('hidden');
+                pctEl.innerText = pct + '%';
+                barra.className = `h-full ${cor} transition-all duration-200`;
+                barra.style.width = Math.max(2, Math.min(100, pct)) + '%';
             }
         }
 
@@ -1199,20 +1232,23 @@
             });
         }
 
+        // OCR — chamado automaticamente ao receber a imagem; o botão de retry reutiliza esta função
         async function processarImagem() {
             if (!imagemAtual) { alert('Envie a imagem do comprovante primeiro.'); return; }
+            const meuPipeline = pipelineId;
             debugLog('=== OCR INICIADO ===', 'info');
 
-            const btn = document.getElementById('btn-processar');
-            btn.disabled = true;
+            document.getElementById('btn-retry-ocr').classList.add('hidden');
             try {
-                // Se o celular está offline, avisa já (OCR precisa baixar recursos)
                 if (!navigator.onLine) {
                     throw new Error('Você está SEM internet. O OCR precisa de conexão para funcionar.');
                 }
 
                 const worker = await obterWorkerOCR();
+                if (meuPipeline !== pipelineId) return; // imagem trocada no meio — aborta
+
                 const imgFinal = await redimensionarImagem(imagemAtual);
+                if (meuPipeline !== pipelineId) return;
                 debugLog(`Imagem preparada p/ OCR: ~${Math.round(imgFinal.length / 1024)} KB`, 'info');
 
                 const resultado = await comTimeout(
@@ -1220,6 +1256,7 @@
                     120000,
                     'O OCR demorou demais (120s). Tente novamente ou use o teste 🧪 do diagnóstico.'
                 );
+                if (meuPipeline !== pipelineId) return;
                 const data = resultado.data;
 
                 ultimoTextoOCR = data.text || '';
@@ -1228,32 +1265,30 @@
 
                 if (ultimoTextoOCR.trim().length < 10) {
                     debugLog('OCR leu texto insuficiente — imagem pode estar borrada/cortada', 'warn');
-                    alert('⚠️ O OCR não conseguiu ler nada útil nesta imagem.\n\nDicas:\n• Tire o print com a tela do comprovante bem visível\n• Verifique se a imagem não está muito escura/borrada\n• Veja o texto lido no painel 🐞 de diagnóstico');
                 }
 
                 const extraidos = extrairDadosComprovante(ultimoTextoOCR);
                 debugLog(`Extração → data=${extraidos.data || 'NÃO DETECTADA'} | hora=${extraidos.hora || 'NÃO DETECTADA'} | id=${extraidos.identificacao ? 'sim (' + extraidos.identificacao.length + ' car.)' : 'não'}`, 'info');
 
                 await preencherFormularioImportacao(extraidos);
+                if (meuPipeline !== pipelineId) return;
 
-                // NOVO: rola a tela até o Passo 2 (no celular ele fica fora da vista!)
                 document.getElementById('passo-dados').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-                atualizarStatusOCR('✅ Leitura concluída! Confira os campos no Passo 2 abaixo.', null);
+                atualizarStatusOCR('✅ Leitura automática concluída! Confira os campos no Passo 2.', null);
             } catch (err) {
                 debugLog(`OCR FALHOU: ${err.message}`, 'erro');
                 atualizarStatusOCR('❌ Erro ao ler a imagem: ' + err.message, null);
-                alert('Não foi possível ler a imagem: ' + err.message + '\n\nAbra o 🐞 diagnóstico para detalhes e testes.');
-            } finally {
-                btn.disabled = false;
+                document.getElementById('btn-retry-ocr').classList.remove('hidden');
+                alert('Não foi possível ler a imagem: ' + err.message + '\n\nUse o botão "🔄 Tentar leitura novamente" ou abra o 🐞 diagnóstico.');
             }
         }
 
         // =========================================================================
-        // 5.1 ARMAZENAMENTO DA IMAGEM DO COMPROVANTE
+        // 5.1 ARMAZENAMENTO DA IMAGEM — OTIMIZADO (Blob binário + pré-compressão)
         // =========================================================================
 
-        function comprimirImagem(dataURL, maxLado = 1000, qualidade = 0.75) {
+        // Converte canvas direto em Blob (binário) — evita string base64 gigante na memória
+        function comprimirParaBlob(dataURL, maxLado, qualidade) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
@@ -1262,27 +1297,87 @@
                     canvas.width = Math.round(img.width * escala);
                     canvas.height = Math.round(img.height * escala);
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    resolve(canvas.toDataURL('image/jpeg', qualidade));
+                    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', qualidade);
                 };
-                img.onerror = () => resolve(dataURL);
+                img.onerror = () => resolve(null);
                 img.src = dataURL;
             });
         }
 
-        async function enviarImagemComprovante(dataStr) {
+        // Compressão adaptativa: busca a melhor qualidade dentro do alvo de ~200KB.
+        // Executada em SEGUNDO PLANO assim que a imagem chega (paralela ao OCR).
+        async function prepararBlobUpload(meuPipeline) {
+            const t0 = performance.now();
+            debugLog('Pré-compressão da imagem iniciada (2º plano)...', 'info');
+
+            const tentativas = [
+                { maxLado: 900, qualidade: 0.70 },
+                { maxLado: 800, qualidade: 0.60 },
+                { maxLado: 700, qualidade: 0.50 },
+                { maxLado: 600, qualidade: 0.42 }
+            ];
+
+            let melhorBlob = null;
+            for (const t of tentativas) {
+                if (meuPipeline !== undefined && meuPipeline !== pipelineId) return; // imagem trocada
+                const blob = await comprimirParaBlob(imagemAtual, t.maxLado, t.qualidade);
+                if (!blob) break;
+                melhorBlob = blob;
+                if (blob.size <= 200 * 1024) break; // atingiu o alvo
+            }
+
+            if (meuPipeline !== undefined && meuPipeline !== pipelineId) return;
+
+            if (melhorBlob) {
+                blobUploadPronto = melhorBlob;
+                const ms = Math.round(performance.now() - t0);
+                debugLog(`Pré-compressão concluída em ${ms}ms → ~${Math.round(melhorBlob.size / 1024)} KB (pronto p/ envio instantâneo)`, 'ok');
+            } else {
+                debugLog('Pré-compressão falhou — upload tentará comprimir na hora', 'warn');
+            }
+        }
+
+        function blobParaDataURL(blob) {
+            return new Promise((resolve, reject) => {
+                const r = new FileReader();
+                r.onload = () => resolve(r.result);
+                r.onerror = reject;
+                r.readAsDataURL(blob);
+            });
+        }
+
+        // ALTERADO: envia Blob binário (put) com progresso real; fallback Firestore se Storage falhar
+        async function enviarImagemComprovante(dataStr, onProgresso) {
             if (!imagemAtual) return { ok: false, motivo: 'Nenhuma imagem carregada.' };
 
-            let dataURL = await comprimirImagem(imagemAtual, 1000, 0.75);
-            debugLog(`Imagem comprimida p/ envio: ~${Math.round(dataURL.length / 1024)} KB`, 'info');
+            // Usa o blob pré-comprimido se já estiver pronto; senão comprime agora
+            let blob = blobUploadPronto;
+            if (!blob) {
+                debugLog('Blob pré-comprimido não estava pronto — comprimindo agora...', 'info');
+                await prepararBlobUpload();
+                blob = blobUploadPronto;
+            }
+            if (!blob) return { ok: false, motivo: 'falha ao comprimir a imagem' };
 
+            debugLog(`Enviando ~${Math.round(blob.size / 1024)} KB (binário)...`, 'info');
+
+            // 1) Caminho preferencial: Firebase Storage (upload binário — mais rápido)
             if (storagePontos) {
                 try {
                     const caminho = `comprovantes/${dataStr}/${Date.now()}.jpg`;
                     const ref = storagePontos.ref().child(caminho);
-                    const snapshot = await comTimeout(ref.putString(dataURL, 'data_url'), 60000, 'Upload no Storage demorou (60s)');
-                    const url = await snapshot.ref.getDownloadURL();
-                    debugLog(`Imagem salva no Storage: ${caminho}`, 'ok');
-                    return { ok: true, storage: true, url: url, path: caminho };
+                    const task = ref.put(blob, { contentType: 'image/jpeg' });
+
+                    task.on('state_changed', (snap) => {
+                        if (onProgresso && snap.totalBytes > 0) {
+                            onProgresso(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+                        }
+                    });
+
+                    await comTimeout(task, 60000, 'Upload no Storage demorou (60s)');
+                    const url = await task.snapshot.ref.getDownloadURL();
+                    debugLog(`Imagem salva no Storage em formato binário: ${caminho}`, 'ok');
+                    return { ok: true, storage: true, url: url, path: caminho, kb: Math.round(blob.size / 1024) };
                 } catch (e) {
                     debugLog(`Storage falhou (${e.code || ''} ${e.message}) — usando fallback Firestore`, 'warn');
                 }
@@ -1290,14 +1385,19 @@
                 debugLog('Storage indisponível — usando fallback Firestore diretamente', 'warn');
             }
 
+            // 2) Fallback: base64 na subcoleção do dia (documento pequeno = escrita rápida)
+            if (onProgresso) onProgresso(50);
+            let dataURL = await blobParaDataURL(blob);
             if (dataURL.length > 900000) {
-                dataURL = await comprimirImagem(imagemAtual, 700, 0.55);
-                debugLog(`Recomprimida p/ caber no Firestore: ~${Math.round(dataURL.length / 1024)} KB`, 'info');
+                const menor = await comprimirParaBlob(imagemAtual, 600, 0.45);
+                if (menor) dataURL = await blobParaDataURL(menor);
             }
+            if (onProgresso) onProgresso(85);
+
             if (dataURL.length > 950000) {
                 return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
             }
-            return { ok: true, storage: false, base64: dataURL };
+            return { ok: true, storage: false, base64: dataURL, kb: Math.round(dataURL.length / 1024) };
         }
 
         async function salvarImagemFirestore(dataStr, base64, identificacao) {
@@ -1487,7 +1587,6 @@
             document.getElementById('import-identificacao').value = d.identificacao || '';
             debugLog(`Campos preenchidos → data="${d.data || ''}" hora="${d.hora || ''}"`, 'info');
 
-            // NOVO: alerta bem visível quando faltar dado essencial
             const faltando = [];
             if (!d.data) faltando.push('Data');
             if (!d.hora) faltando.push('Horário');
@@ -1612,7 +1711,6 @@
 
                 if (snap.exists) {
                     const d = snap.data();
-                    debugLog(`Dia existente: ${JSON.stringify({ entrada: d.entrada, almocoSaida: d.almocoSaida, almocoRetorno: d.almocoRetorno, saida: d.saida })}`, 'info');
 
                     if (identificacao && d.identificacao && d.identificacao === identificacao) {
                         debugLog('Bloqueado: comprovante duplicado (mesma identificação)', 'warn');
@@ -1636,27 +1734,38 @@
 
                 if (salvarImagem && imagemAtual) {
                     btn.disabled = true;
-                    btn.innerText = '⏳ Salvando comprovante...';
-                    debugLog('Enviando imagem do comprovante...', 'info');
-                    const resultado = await enviarImagemComprovante(dataStr);
-                    btn.disabled = false;
-                    btn.innerText = textoOriginal;
+                    btn.innerText = '⏳ Enviando...';
+                    const t0 = performance.now();
+
+                    const resultado = await enviarImagemComprovante(dataStr, (pct) => {
+                        atualizarStatusUpload(`⏳ Enviando imagem do comprovante...`, pct);
+                    });
+
+                    const msTotal = Math.round(performance.now() - t0);
 
                     if (resultado.ok && resultado.storage) {
                         extras.comprovanteUrl = resultado.url;
                         extras.comprovantePath = resultado.path;
+                        atualizarStatusUpload(`✅ Imagem enviada (~${resultado.kb} KB em ${msTotal / 1000}s via Storage)`, 100, 'bg-emerald-500');
+                        debugLog(`Upload concluído em ${msTotal}ms via Storage`, 'ok');
                     } else if (resultado.ok) {
                         try {
                             extras.comprovanteId = await salvarImagemFirestore(dataStr, resultado.base64, identificacao);
+                            atualizarStatusUpload(`✅ Imagem salva (~${resultado.kb} KB em ${msTotal / 1000}s via Firestore)`, 100, 'bg-emerald-500');
                         } catch (e) {
                             debugLog(`Falha ao salvar imagem no Firestore: ${e.message}`, 'erro');
+                            atualizarStatusUpload('⚠️ Imagem não foi salva — o ponto será registrado sem ela.', null, 'bg-amber-500');
                             const ok = confirm('A imagem não pôde ser salva no banco.\nDeseja registrar o ponto mesmo assim (sem imagem)?');
-                            if (!ok) return;
+                            if (!ok) { btn.disabled = false; btn.innerText = textoOriginal; return; }
                         }
                     } else {
+                        atualizarStatusUpload('⚠️ Imagem não foi salva — o ponto será registrado sem ela.', null, 'bg-amber-500');
                         const ok = confirm('Não foi possível salvar a imagem (' + resultado.motivo + ').\nDeseja registrar o ponto mesmo assim (sem imagem)?');
-                        if (!ok) return;
+                        if (!ok) { btn.disabled = false; btn.innerText = textoOriginal; return; }
                     }
+
+                    btn.disabled = false;
+                    btn.innerText = textoOriginal;
                 }
 
                 await salvarNoFirebase(dataStr, horaStr, tipo, justificativa, extras);
@@ -1665,7 +1774,6 @@
                 limparImportacao();
 
             } catch (err) {
-                // CORRIGIDO: antes este erro era engolido (só console.error) — agora aparece!
                 debugLog(`IMPORTAÇÃO FALHOU: ${err.code || ''} ${err.message}`, 'erro');
                 alert('❌ Falha ao concluir a importação.\n\nCódigo: ' + (err.code || 'desconhecido') + '\nDetalhe: ' + err.message + '\n\nAbra o 🐞 diagnóstico e use "Testar banco" para verificar a conexão.');
                 btn.disabled = false;
