@@ -274,6 +274,7 @@
 
             <div class="flex flex-wrap gap-2 mb-3">
                 <button onclick="testarConexaoFirestore()" class="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg">🧪 Testar banco (Firestore)</button>
+                <button onclick="testarStorageImagens()" class="text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg">🧪 Testar imagens (Supabase/Storage)</button>
                 <button onclick="testarOCRInterno()" class="text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg">🧪 Testar OCR</button>
             </div>
             <div id="debug-testes" class="text-[11px] font-mono bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3 space-y-1"></div>
@@ -332,12 +333,20 @@
         }
         function fecharDebug() { document.getElementById('modal-debug').classList.add('hidden'); }
 
+        function provedorAtivoImagens() {
+            if (https://bcbcwbzgtjscbwucyeou.supabase.co && sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM) return 'Supabase (configurado)';
+            if (CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset) return 'Cloudinary (configurado)';
+            if (storagePontos) return 'Firebase Storage';
+            return 'Firestore (fallback base64)';
+        }
+
         function renderizarEstadoDebug() {
             const itens = [
                 ['Biblioteca OCR (Tesseract.js)', typeof Tesseract !== 'undefined' ? '✅ carregada' : '❌ NÃO carregou (internet/bloqueio)'],
                 ['Firebase SDK', typeof firebase !== 'undefined' ? '✅ carregado' : '❌ NÃO carregou'],
                 ['Firestore (banco de dados)', colecaoPontos ? '✅ conectado' : '❌ não inicializado'],
-                ['Firebase Storage (imagens)', storagePontos ? (storageDesativadoSessao ? '⚠️ desativado nesta sessão (usando fallback Firestore)' : '✅ disponível') : '⚠️ indisponível (usa fallback no Firestore)'],
+                ['Provedor de imagens', provedorAtivoImagens()],
+                ['Firebase Storage', storagePontos ? (storageDesativadoSessao ? '⚠️ desativado nesta sessão' : '✅ disponível') : '⚠️ indisponível'],
                 ['Conexão de rede', navigator.onLine ? '✅ online' : '❌ OFFLINE'],
                 ['Fila de comprovantes', `${filaImportacao.length} item(ns) — ${filaImportacao.filter(i => i.status === 'lido').length} lido(s), ${filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length} pendente(s)`],
                 ['Meta / Período', `${META_FOLGA_NATAL_MIN / 60}h • ${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}`],
@@ -353,7 +362,7 @@
             texto += `Data: ${new Date().toLocaleString('pt-BR')}\n`;
             texto += `Navegador: ${navigator.userAgent}\n`;
             texto += `Rede online: ${navigator.onLine}\n`;
-            texto += `Tesseract: ${typeof Tesseract !== 'undefined'} | Firebase: ${typeof firebase !== 'undefined'} | Storage: ${!!storagePontos} | Storage desativado na sessão: ${storageDesativadoSessao}\n\n`;
+            texto += `Tesseract: ${typeof Tesseract !== 'undefined'} | Firebase: ${typeof firebase !== 'undefined'} | Provedor imagens: ${provedorAtivoImagens()}\n\n`;
             texto += '=== ÚLTIMO TEXTO OCR ===\n' + (ultimoTextoOCR || '(nenhum)') + '\n\n';
             texto += '=== EVENTOS (antigos → recentes) ===\n';
             debugLogs.forEach(l => { texto += `${l.ts} [${l.tipo.toUpperCase()}] ${l.msg}\n`; });
@@ -401,7 +410,6 @@
             return Promise.race([promessa, rejeita]).finally(() => clearTimeout(timer));
         }
 
-        // NOVO: retry com backoff para operações do Firestore (resolve o "client is offline" transitório)
         async function comRetryFirestore(operacao, tentativas = 3, esperaMs = 2000) {
             let ultimoErro;
             for (let i = 0; i < tentativas; i++) {
@@ -414,7 +422,7 @@
                     if (!ehFalhaRede || i === tentativas - 1) throw e;
                     debugLog(`Firestore falhou (tentativa ${i + 1}/${tentativas}): ${e.message} — repetindo em ${esperaMs}ms...`, 'warn');
                     await new Promise(r => setTimeout(r, esperaMs));
-                    esperaMs *= 2; // backoff: 2s, 4s...
+                    esperaMs *= 2;
                 }
             }
             throw ultimoErro;
@@ -441,32 +449,64 @@
             }
         }
 
-        // NOVO: teste dedicado ao Storage (isola o problema do upload travando)
-        async function testarStorage() {
+        // Teste da cadeia de armazenamento de imagens (Supabase → Cloudinary → Firebase Storage)
+        async function testarStorageImagens() {
             const saida = document.getElementById('debug-testes');
-            saida.innerHTML += `<div class="text-blue-300">🧪 Testando Firebase Storage (upload de 10 KB)...</div>`;
-            if (!storagePontos) {
-                saida.innerHTML += `<div class="text-rose-400">❌ Storage não disponível (SDK não carregado).</div>`;
-                return;
+            saida.innerHTML += `<div class="text-teal-300">🧪 Testando provedor de imagens: ${provedorAtivoImagens()}...</div>`;
+
+            // Blob de teste (50x50 gerado localmente)
+            const canvas = document.createElement('canvas');
+            canvas.width = 50; canvas.height = 50;
+            const blobTeste = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.5));
+
+            if (https://bcbcwbzgtjscbwucyeou.supabase.co && sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM) {
+                try {
+                    const caminho = `_debug_teste/${Date.now()}.jpg`;
+                    const t0 = performance.now();
+                    const resp = await comTimeout(fetch(
+                        `${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM}`,
+                                'Content-Type': 'image/jpeg'
+                            },
+                            body: blobTeste
+                        }
+                    ), 25000, 'Supabase demorou (25s)');
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text().catch(() => resp.statusText)}`);
+                    await fetch(`${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM}` }
+                    }).catch(() => {});
+                    const ms = Math.round(performance.now() - t0);
+                    saida.innerHTML += `<div class="text-emerald-400">✅ Supabase OK (${ms}ms).</div>`;
+                    debugLog(`Teste Supabase: SUCESSO em ${ms}ms`, 'ok');
+                    return;
+                } catch (e) {
+                    saida.innerHTML += `<div class="text-rose-400">❌ Supabase falhou: ${e.message}</div>`;
+                    debugLog(`Teste Supabase falhou: ${e.message}`, 'erro');
+                }
             }
-            try {
-                // pequeno PNG de teste gerado localmente
-                const canvas = document.createElement('canvas');
-                canvas.width = 50; canvas.height = 50;
-                const blobTeste = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.5));
-                const caminho = `_debug_teste/${Date.now()}.jpg`;
-                const ref = storagePontos.ref().child(caminho);
-                const t0 = performance.now();
-                await comTimeout(ref.put(blobTeste, { contentType: 'image/jpeg' }), 25000, 'Upload de teste demorou (25s) — provavelmente o bucket do Storage NÃO está criado/ativo no console do Firebase');
-                await ref.delete().catch(() => {});
-                const ms = Math.round(performance.now() - t0);
-                saida.innerHTML += `<div class="text-emerald-400">✅ Storage OK (${ms}ms).</div>`;
-                debugLog(`Teste Storage: SUCESSO em ${ms}ms`, 'ok');
-            } catch (e) {
-                saida.innerHTML += `<div class="text-rose-400">❌ Storage falhou: ${e.message}</div>`;
-                saida.innerHTML += `<div class="text-amber-400">💡 Se o erro for timeout, crie o bucket em: Console Firebase → Build → Storage → "Começar". Sem ele, o sistema usa o fallback no Firestore (que agora é automático).</div>`;
-                debugLog(`Teste Storage falhou: ${e.message}`, 'erro');
+
+            if (storagePontos && !storageDesativadoSessao) {
+                saida.innerHTML += `<div class="text-blue-300">🧪 Testando Firebase Storage...</div>`;
+                try {
+                    const caminho = `_debug_teste/${Date.now()}.jpg`;
+                    const ref = storagePontos.ref().child(caminho);
+                    const t0 = performance.now();
+                    await comTimeout(ref.put(blobTeste, { contentType: 'image/jpeg' }), 25000, 'Upload de teste demorou (25s) — provavelmente o bucket do Storage NÃO está criado no console');
+                    await ref.delete().catch(() => {});
+                    const ms = Math.round(performance.now() - t0);
+                    saida.innerHTML += `<div class="text-emerald-400">✅ Firebase Storage OK (${ms}ms).</div>`;
+                    debugLog(`Teste Firebase Storage: SUCESSO em ${ms}ms`, 'ok');
+                } catch (e) {
+                    saida.innerHTML += `<div class="text-rose-400">❌ Firebase Storage falhou: ${e.message}</div>`;
+                    debugLog(`Teste Firebase Storage falhou: ${e.message}`, 'erro');
+                }
             }
+
+            saida.innerHTML += `<div class="text-amber-400">ℹ️ Se nada foi testado, nenhuma alternativa está configurada — as imagens vão direto para o Firestore (base64), o que também funciona.</div>`;
         }
 
         async function testarOCRInterno() {
@@ -537,15 +577,45 @@
         const BANCO_INICIO = '2026-10-01';
         const BANCO_FIM    = '2026-12-11';
 
+        // =====================================================================
+        // NOVO: ARMAZENAMENTO DE IMAGENS EXTERNO (grátis, sem cartão)
+        //
+        // OPÇÃO 1 — SUPABASE (recomendado):
+        //   1. Crie conta grátis em supabase.com (não pede cartão)
+        //   2. Crie um projeto → anote a "Project URL" (ex: https://xxxx.supabase.co)
+        //   3. Storage → New bucket → nome: "comprovantes" → marque PUBLIC bucket
+        //   4. Ainda em Policies do bucket, crie política: Allow INSERT for anon
+        //   5. Project Settings → API → copie a "anon public key"
+        //   6. Cole os dois valores abaixo
+        //
+        // OPÇÃO 2 — CLOUDINARY:
+        //   1. Crie conta grátis em cloudinary.com (não pede cartão)
+        //   2. Settings → Upload → "Add upload preset" → Signing Mode: Unsigned → salve
+        //   3. Anote o "Cloud name" (Dashboard) e o nome do preset criado
+        //   4. Preencha CLOUDINARY_CONFIG abaixo
+        //
+        // Deixe as duas vazias para usar Firestore base64 (funciona sem nada).
+        // =====================================================================
+        const SUPABASE_CONFIG = {
+            url: '',       // ex: 'https://abcdefghij.supabase.co'  (SEM barra final)
+            anonKey: '',   // ex: 'eyJhbGciOiJIUzI1NiIsInR5cCI6...' (chave anon public)
+            bucket: 'comprovantes'
+        };
+
+        const CLOUDINARY_CONFIG = {
+            cloudName: '',      // ex: 'meucloud123'
+            uploadPreset: ''    // ex: 'comprovantes_preset'
+        };
+
         let db;
         let colecaoPontos;
         let storagePontos = null;
         let colecaoConfig = null;
         let bancoTotalAtual = 0;
         let ritmoAtualMinDia = null;
-        // NOVO: se o Storage falhar de forma estrutural (timeout/bucket inexistente/permissão),
-        // desativa para o resto da sessão — próximos itens vão direto ao fallback (rápido)
         let storageDesativadoSessao = false;
+        let supabaseDesativadoSessao = false;   // NOVO
+        let cloudinaryDesativadoSessao = false; // NOVO
 
         try {
             if (typeof firebase === 'undefined') {
@@ -565,7 +635,7 @@
             } catch (e) {
                 console.warn("Firebase Storage indisponível:", e.message);
             }
-            debugLog('Firebase inicializado com sucesso', 'ok');
+            debugLog(`Firebase inicializado. Provedor de imagens: ${provedorAtivoImagens()}`, 'ok');
         } catch (error) {
             console.error("Erro ao conectar com Firebase:", error.message);
             debugLog('Falha ao inicializar Firebase: ' + error.message, 'erro');
@@ -681,7 +751,6 @@
             document.getElementById('manual-justificativa').value = '';
         }
 
-        // Gravação "muda" (sem alert) — usada pelo lote — agora COM retry de rede
         async function gravarPontoFirestore(data, hora, tipo, justificativa, extras = {}) {
             const docRef = colecaoPontos.doc(data);
             let dadosPonto = { data: data };
@@ -698,7 +767,6 @@
             debugLog(`Firestore: ponto salvo (${data}/${tipo}=${hora})`, 'ok');
         }
 
-        // Gravação com alert + recarga do histórico (usada pelos botões de bater ponto)
         function salvarNoFirebase(data, hora, tipo, justificativa, extras = {}) {
             debugLog(`Salvando no Firestore: ${data} | ${tipo}=${hora}`, 'info');
 
@@ -1204,8 +1272,6 @@
                 while (true) {
                     const item = filaImportacao.find(i => i.status === 'aguardando');
                     if (!item) break;
-
-                    // Proteção contra reprocessamento duplicado
                     if (item.status !== 'aguardando') continue;
 
                     const totalRestante = filaImportacao.filter(i => i.status === 'aguardando' || i.status === 'lendo').length;
@@ -1223,7 +1289,6 @@
                             'O OCR demorou demais (120s) neste item.'
                         );
 
-                        // Se o item saiu da fila ou mudou de status durante a leitura, não sobrescreve
                         if (!filaImportacao.includes(item)) continue;
 
                         ultimoTextoOCR = resultado.data.text || '';
@@ -1755,7 +1820,7 @@
             const identificacao = item.extraidos ? (item.extraidos.identificacao || '') : '';
             const campoTipo = MAPA_TIPO_CAMPO[tipo];
 
-            // Proteções anti-duplicidade (consulta com retry de rede)
+            // Proteções anti-duplicidade
             const snap = await comRetryFirestore(() =>
                 comTimeout(colecaoPontos.doc(dataStr).get(), 20000, 'Consulta ao banco demorou (20s)')
             );
@@ -1771,8 +1836,7 @@
                 }
             }
 
-            // CORRIGIDO: a imagem NUNCA mais bloqueia o ponto.
-            // Se Storage e Firestore falharem, o ponto é gravado sem imagem (com aviso).
+            // Imagem: cadeia de provedores (Supabase → Cloudinary → Firebase Storage → Firestore)
             let extras = { identificacao: identificacao, origem: 'comprovante' };
             let avisoImagem = null;
 
@@ -1785,9 +1849,9 @@
                 }
             });
 
-            if (resultadoImg.ok && resultadoImg.storage) {
+            if (resultadoImg.ok && resultadoImg.url) {
                 extras.comprovanteUrl = resultadoImg.url;
-                extras.comprovantePath = resultadoImg.path;
+                if (resultadoImg.path) extras.comprovantePath = resultadoImg.path;
             } else if (resultadoImg.ok) {
                 try {
                     extras.comprovanteId = await salvarImagemFirestore(dataStr, resultadoImg.base64, identificacao);
@@ -1800,12 +1864,19 @@
                 debugLog(`Item ${item.id}: ${avisoImagem} — ponto será gravado sem imagem`, 'warn');
             }
 
-            // Gravação do ponto — SEMPRE executa (com retry de rede)
+            // Gravação do ponto — SEMPRE executa
             await gravarPontoFirestore(dataStr, horaStr, tipo, justificativa, extras);
-            debugLog(`Item ${item.id} gravado: ${dataStr} ${tipo}=${horaStr}`, 'ok');
+            debugLog(`Item ${item.id} gravado: ${dataStr} ${tipo}=${horaStr} | imagem: ${resultadoImg.provedor || 'não salva'}`, 'ok');
             return { desfecho: 'ok', avisoImagem };
         }
 
+        // =====================================================================
+        // CADEIA DE ARMAZENAMENTO DE IMAGENS (NOVO):
+        //   1. Supabase Storage (grátis, sem cartão) — se configurado
+        //   2. Cloudinary (grátis, sem cartão)       — se configurado
+        //   3. Firebase Storage                      — se disponível
+        //   4. Firestore base64 (fallback eterno)
+        // =====================================================================
         async function enviarImagemItem(item, dataStr, onProgresso) {
             let blob = item.blob;
             if (!blob) {
@@ -1815,7 +1886,58 @@
             }
             if (!blob) return { ok: false, motivo: 'falha ao comprimir a imagem' };
 
-            // Storage — apenas se ativo na sessão (desativa após 1ª falha estrutural)
+            // ---- 1. Supabase Storage (via REST — rápido, CORS liberado) ----
+            if (https://bcbcwbzgtjscbwucyeou.supabase.co && sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM && !supabaseDesativadoSessao) {
+                try {
+                    const caminho = `${dataStr}/${Date.now()}.jpg`;
+                    const urlPublica = `${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/public/${SUPABASE_CONFIG.bucket}/${caminho}`;
+                    const resp = await comTimeout(fetch(
+                        `${https://bcbcwbzgtjscbwucyeou.supabase.co}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${sb_publishable_TXbSI59RB_RKijPmYeT6qw_lpi5L1uM}`,
+                                'Content-Type': 'image/jpeg',
+                                'x-upsert': 'false'
+                            },
+                            body: blob
+                        }
+                    ), 25000, 'Supabase demorou (25s)');
+                    if (!resp.ok) {
+                        const detalhe = await resp.text().catch(() => resp.statusText);
+                        throw new Error(`HTTP ${resp.status}: ${detalhe.substring(0, 120)}`);
+                    }
+                    debugLog(`Imagem ${item.id} salva no SUPABASE (~${Math.round(blob.size / 1024)} KB)`, 'ok');
+                    return { ok: true, url: urlPublica, path: caminho, kb: Math.round(blob.size / 1024), provedor: 'Supabase' };
+                } catch (e) {
+                    debugLog(`Supabase falhou p/ ${item.id} (${e.message}) — tentando próximo provedor`, 'warn');
+                    supabaseDesativadoSessao = true;
+                }
+            }
+
+            // ---- 2. Cloudinary (upload unsigned — sem chave secreta) ----
+            if (CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset && !cloudinaryDesativadoSessao) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', blob, `comprovante_${dataStr}_${Date.now()}.jpg`);
+                    formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+                    formData.append('folder', 'comprovantes');
+
+                    const resp = await comTimeout(fetch(
+                        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`,
+                        { method: 'POST', body: formData }
+                    ), 25000, 'Cloudinary demorou (25s)');
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const json = await resp.json();
+                    debugLog(`Imagem ${item.id} salva no CLOUDINARY (~${Math.round(blob.size / 1024)} KB)`, 'ok');
+                    return { ok: true, url: json.secure_url, path: json.public_id, kb: Math.round(blob.size / 1024), provedor: 'Cloudinary' };
+                } catch (e) {
+                    debugLog(`Cloudinary falhou p/ ${item.id} (${e.message}) — tentando próximo provedor`, 'warn');
+                    cloudinaryDesativadoSessao = true;
+                }
+            }
+
+            // ---- 3. Firebase Storage (só se ativo na sessão) ----
             if (storagePontos && !storageDesativadoSessao) {
                 try {
                     const caminho = `comprovantes/${dataStr}/${Date.now()}.jpg`;
@@ -1826,20 +1948,17 @@
                             onProgresso(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
                         }
                     });
-                    // REDUZIDO: 60s → 25s (34KB não deveria levar mais que isso; bucket inexistente trava até timeout)
                     await comTimeout(task, 25000, 'Upload no Storage demorou (25s)');
                     const url = await task.snapshot.ref.getDownloadURL();
-                    debugLog(`Imagem ${item.id} salva no Storage: ${caminho} (~${Math.round(blob.size / 1024)} KB)`, 'ok');
-                    return { ok: true, storage: true, url, path: caminho, kb: Math.round(blob.size / 1024) };
+                    debugLog(`Imagem ${item.id} salva no FIREBASE STORAGE (~${Math.round(blob.size / 1024)} KB)`, 'ok');
+                    return { ok: true, url, path: caminho, kb: Math.round(blob.size / 1024), provedor: 'Firebase Storage' };
                 } catch (e) {
-                    debugLog(`Storage falhou p/ ${item.id} (${e.code || ''} ${e.message}) — desativando Storage nesta sessão e usando fallback Firestore`, 'warn');
+                    debugLog(`Firebase Storage falhou p/ ${item.id} (${e.code || ''} ${e.message}) — usando fallback Firestore`, 'warn');
                     storageDesativadoSessao = true;
                 }
-            } else if (storageDesativadoSessao) {
-                debugLog(`Item ${item.id}: Storage desativado nesta sessão — indo direto ao fallback Firestore`, 'info');
             }
 
-            // Fallback: base64 na subcoleção do dia (imagem de ~34KB vira ~46KB em base64 — seguro p/ documento)
+            // ---- 4. Fallback eterno: Firestore base64 ----
             try {
                 if (onProgresso) onProgresso(60);
                 let dataURL = await blobParaDataURL(blob);
@@ -1851,14 +1970,12 @@
                 if (dataURL.length > 950000) {
                     return { ok: false, motivo: 'imagem muito grande mesmo após compressão' };
                 }
-                return { ok: true, storage: false, base64: dataURL, kb: Math.round(dataURL.length / 1024) };
+                return { ok: true, base64: dataURL, kb: Math.round(dataURL.length / 1024), provedor: 'Firestore' };
             } catch (e) {
                 return { ok: false, motivo: 'falha ao converter imagem: ' + e.message };
             }
         }
 
-        // CORRIGIDO: função estava AUSENTE na versão de lote (causava "salvarImagemFirestore is not defined").
-        // Agora com retry de rede integrado.
         async function salvarImagemFirestore(dataStr, base64, identificacao) {
             const docComp = await comRetryFirestore(() =>
                 colecaoPontos.doc(dataStr).collection('comprovantes').add({
@@ -1964,9 +2081,17 @@
         async function limparComprovante(idData) {
             try {
                 const docDia = await colecaoPontos.doc(idData).get();
-                if (docDia.exists && docDia.data().comprovantePath && storagePontos) {
-                    await storagePontos.ref().child(docDia.data().comprovantePath).delete();
+                const d = docDia.exists ? docDia.data() : {};
+
+                // Firebase Storage
+                if (d.comprovantePath && storagePontos) {
+                    await storagePontos.ref().child(d.comprovantePath).delete().catch(() => {});
                 }
+                // Cloudinary (deleção exige assinatura — fica no plano do limite de storage)
+                // Supabase: deleção exige chave service_role (não exposta no cliente) —
+                // imagens antigas podem ser limpadas manualmente no painel do Supabase.
+
+                // Firestore (fallback)
                 const comps = await colecaoPontos.doc(idData).collection('comprovantes').get();
                 if (!comps.empty) {
                     const batch = db.batch();
@@ -2229,6 +2354,7 @@
             if (!navigator.onLine) {
                 debugLog('Dispositivo está OFFLINE', 'erro');
             }
+            debugLog(`Provedor de imagens ativo: ${provedorAtivoImagens()}`, 'info');
 
             if (colecaoPontos) {
                 carregarHistorico();
