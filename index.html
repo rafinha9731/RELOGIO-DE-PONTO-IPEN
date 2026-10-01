@@ -230,13 +230,16 @@
 
     </div>
 
-    <!-- ===================== MODAL: VISUALIZAR IMAGEM ===================== -->
+    <!-- ===================== MODAL: GALERIA DE COMPROVANTES (múltiplas imagens) ===================== -->
     <div id="modal-comprovante" class="hidden fixed inset-0 z-50 bg-black bg-opacity-70 flex items-center justify-center p-4" onclick="if(event.target === this) fecharModalImagem()">
-        <div class="bg-white rounded-xl p-4 max-w-lg w-full max-h-[90vh] overflow-auto shadow-xl">
+        <div class="bg-white rounded-xl p-4 max-w-lg w-full max-h-[92vh] overflow-auto shadow-xl">
             <div class="flex justify-between items-center mb-3">
                 <h3 id="modal-titulo" class="text-sm font-bold text-gray-800">Comprovante</h3>
                 <button onclick="fecharModalImagem()" class="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">✕</button>
             </div>
+            <div id="modal-erro" class="hidden text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-3 mb-3 leading-relaxed"></div>
+            <!-- NOVO: grade de miniaturas (aparece quando o dia tem 2+ imagens) -->
+            <div id="modal-galeria" class="hidden grid grid-cols-4 gap-2 mb-3"></div>
             <img id="modal-img" class="w-full rounded-lg border border-gray-100" alt="Comprovante de marcação">
         </div>
     </div>
@@ -333,7 +336,6 @@
         }
         function fecharDebug() { document.getElementById('modal-debug').classList.add('hidden'); }
 
-        // CORRIGIDO: referencia o objeto de configuração (a URL NUNCA vai direto no código)
         function provedorAtivoImagens() {
             if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) return 'Supabase (configurado)';
             if (CLOUDINARY_CONFIG.cloudName && CLOUDINARY_CONFIG.uploadPreset) return 'Cloudinary (configurado)';
@@ -450,17 +452,15 @@
             }
         }
 
-        // Teste da cadeia de armazenamento de imagens (Supabase → Firebase Storage)
+        // Teste da cadeia de armazenamento de imagens (upload + leitura pública)
         async function testarStorageImagens() {
             const saida = document.getElementById('debug-testes');
             saida.innerHTML += `<div class="text-teal-300">🧪 Testando provedor de imagens: ${provedorAtivoImagens()}...</div>`;
 
-            // Blob de teste (50x50 gerado localmente)
             const canvas = document.createElement('canvas');
             canvas.width = 50; canvas.height = 50;
             const blobTeste = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.5));
 
-            // CORRIGIDO: usa SUPABASE_CONFIG (não colar URL direto no código!)
             if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) {
                 try {
                     const caminho = `_debug_teste/${Date.now()}.jpg`;
@@ -477,17 +477,31 @@
                         }
                     ), 25000, 'Supabase demorou (25s)');
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${await resp.text().catch(() => resp.statusText)}`);
+                    saida.innerHTML += `<div class="text-emerald-400">✅ Supabase: UPLOAD OK (${Math.round(performance.now() - t0)}ms).</div>`;
+
+                    const urlPublica = `${SUPABASE_CONFIG.url}/storage/v1/object/public/${SUPABASE_CONFIG.bucket}/${caminho}`;
+                    try {
+                        const respLeitura = await comTimeout(fetch(urlPublica), 15000, 'Leitura pública demorou (15s)');
+                        if (respLeitura.ok) {
+                            saida.innerHTML += `<div class="text-emerald-400">✅ Supabase: LEITURA PÚBLICA OK — o botão "Ver" funciona.</div>`;
+                            debugLog(`Teste Supabase: upload + leitura pública SUCESSO`, 'ok');
+                        } else {
+                            saida.innerHTML += `<div class="text-rose-400">❌ Supabase: UPLOAD funciona, mas LEITURA PÚBLICA falhou (HTTP ${respLeitura.status}). Marque "Public bucket" no Supabase.</div>`;
+                            debugLog(`Teste Supabase: leitura pública falhou (HTTP ${respLeitura.status})`, 'erro');
+                        }
+                    } catch (eLeitura) {
+                        saida.innerHTML += `<div class="text-rose-400">❌ Supabase: LEITURA PÚBLICA falhou: ${eLeitura.message}</div>`;
+                        debugLog(`Teste Supabase: leitura pública falhou: ${eLeitura.message}`, 'erro');
+                    }
+
                     await fetch(`${SUPABASE_CONFIG.url}/storage/v1/object/${SUPABASE_CONFIG.bucket}/${caminho}`, {
                         method: 'DELETE',
                         headers: { 'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}` }
                     }).catch(() => {});
-                    const ms = Math.round(performance.now() - t0);
-                    saida.innerHTML += `<div class="text-emerald-400">✅ Supabase OK (${ms}ms).</div>`;
-                    debugLog(`Teste Supabase: SUCESSO em ${ms}ms`, 'ok');
                     return;
                 } catch (e) {
                     saida.innerHTML += `<div class="text-rose-400">❌ Supabase falhou: ${e.message}</div>`;
-                    saida.innerHTML += `<div class="text-amber-400">💡 Confira: bucket "comprovantes" existe? Está marcado como PUBLIC? A política anon permite INSERT?</div>`;
+                    saida.innerHTML += `<div class="text-amber-400">💡 Confira: bucket "comprovantes" existe? A chave é a LEGADA (eyJ...)? A política anon permite INSERT?</div>`;
                     debugLog(`Teste Supabase falhou: ${e.message}`, 'erro');
                 }
             }
@@ -498,7 +512,7 @@
                     const caminho = `_debug_teste/${Date.now()}.jpg`;
                     const ref = storagePontos.ref().child(caminho);
                     const t0 = performance.now();
-                    await comTimeout(ref.put(blobTeste, { contentType: 'image/jpeg' }), 25000, 'Upload de teste demorou (25s) — provavelmente o bucket do Storage NÃO está criado no console');
+                    await comTimeout(ref.put(blobTeste, { contentType: 'image/jpeg' }), 25000, 'Upload de teste demorou (25s)');
                     await ref.delete().catch(() => {});
                     const ms = Math.round(performance.now() - t0);
                     saida.innerHTML += `<div class="text-emerald-400">✅ Firebase Storage OK (${ms}ms).</div>`;
@@ -583,11 +597,8 @@
         // =====================================================================
         // ARMAZENAMENTO DE IMAGENS EXTERNO (grátis, sem cartão)
         //
-        // CORRIGIDO: a URL e a chave do Supabase vão APENAS aqui dentro,
-        // entre aspas simples. O resto do código usa SUPABASE_CONFIG.url e
-        // SUPABASE_CONFIG.anonKey — nunca copie a URL para outras partes!
-        //
-        // Deixe vazio para usar Firestore base64 (funciona sem nada).
+        // REQUISITO para o botão "Ver": bucket "comprovantes" marcado como
+        // PUBLIC no Supabase (já está ✓). A chave abaixo é a LEGADA anon (eyJ...).
         // =====================================================================
         const SUPABASE_CONFIG = {
             url: 'https://bcbcwbzgtjscbwucyeou.supabase.co',
@@ -826,20 +837,25 @@
                         }
                     }
 
+                    // NOVO: normalização para múltiplas imagens (compatível com registros antigos de 1 imagem)
+                    const urlsComp = Array.isArray(dia.comprovantesUrls) ? dia.comprovantesUrls : (dia.comprovanteUrl ? [dia.comprovanteUrl] : []);
+                    const idsComp = Array.isArray(dia.comprovantesIds) ? dia.comprovantesIds : (dia.comprovanteId ? [dia.comprovanteId] : []);
+                    const qtdImagens = urlsComp.length + idsComp.length;
+
+                    if (qtdImagens > 0) {
+                        indiceComprovantes[dataDocStr] = { urls: urlsComp, ids: idsComp };
+                    }
+
                     const badgeComp = (dia.origem === 'comprovante')
-                        ? `<span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded align-middle" title="${dia.identificacao ? 'ID: ' + dia.identificacao : 'Importado via comprovante'}">Comprovante</span>`
+                        ? `<span class="ml-2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded align-middle" title="${qtdImagens > 0 ? qtdImagens + ' comprovante(s) anexado(s)' : 'Importado via comprovante'}">${qtdImagens > 1 ? 'Comprovantes ×' + qtdImagens : 'Comprovante'}</span>`
                         : '';
 
                     const badgeFora = !noPeriodo
                         ? `<span class="ml-2 text-[10px] font-semibold bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded align-middle" title="Fora do período válido do banco (${formatarDataBR(BANCO_INICIO)} a ${formatarDataBR(BANCO_FIM)}) — não computa para a meta de Natal">fora do banco</span>`
                         : '';
 
-                    const temImagem = !!(dia.comprovanteUrl || dia.comprovanteId);
-                    if (temImagem) {
-                        indiceComprovantes[dataDocStr] = { url: dia.comprovanteUrl || null, id: dia.comprovanteId || null };
-                    }
-                    const btnVerImagem = temImagem
-                        ? `<button onclick="verComprovanteHistorico('${dataDocStr}')" title="Ver imagem do comprovante" class="text-blue-500 hover:text-blue-700 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition mr-1">🖼️ Ver</button>`
+                    const btnVerImagem = qtdImagens > 0
+                        ? `<button onclick="verComprovanteHistorico('${dataDocStr}')" title="Ver ${qtdImagens > 1 ? 'as ' + qtdImagens + ' imagens' : 'a imagem'} do(s) comprovante(s)" class="text-blue-500 hover:text-blue-700 font-semibold text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition mr-1">🖼️ Ver${qtdImagens > 1 ? ' (' + qtdImagens + ')' : ''}</button>`
                         : '';
 
                     const notaFora = noPeriodo ? '' : ' • FORA DO PERÍODO DO BANCO (não computa p/ meta)';
@@ -966,7 +982,7 @@
         }
 
         function deletarRegistroDia(idData) {
-            if (confirm(`Excluir permanentemente o dia ${formatarDataBR(idData)}?\nA imagem do comprovante anexada (se houver) também será excluída.`)) {
+            if (confirm(`Excluir permanentemente o dia ${formatarDataBR(idData)}?\nA(s) imagem(ns) do(s) comprovante(s) anexada(s) (se houver) também será(ão) excluída(s).`)) {
                 limparComprovante(idData);
                 colecaoPontos.doc(idData).delete().then(() => {
                     carregarHistorico();
@@ -1685,37 +1701,146 @@
             abrirModalImagem(item.dataURL, 'Print da fila — ' + (item.selecoes.data ? formatarDataBR(item.selecoes.data) : 'data não detectada'));
         }
 
+        // =====================================================================
+        // MODAL GALERIA — exibe TODAS as imagens do dia em miniaturas clicáveis.
+        // galeriaImagens = [{ tipo: 'url'|'b64', src: string }]
+        // =====================================================================
+        let galeriaImagens = [];
+        let indiceImagemAtiva = 0;
+
+        // Abre modal com 1 imagem (usado na pré-visualização da fila)
         function abrirModalImagem(url, titulo) {
+            galeriaImagens = [{ tipo: 'url', src: url }];
             document.getElementById('modal-titulo').innerText = titulo || 'Comprovante';
-            document.getElementById('modal-img').src = url;
+            document.getElementById('modal-erro').classList.add('hidden');
             document.getElementById('modal-comprovante').classList.remove('hidden');
+            renderizarGaleria();
+            selecionarImagemGaleria(0);
+        }
+
+        function mostrarErroModal(mensagem, urlFalhou) {
+            const erroEl = document.getElementById('modal-erro');
+            erroEl.classList.remove('hidden');
+            erroEl.innerHTML =
+                mensagem +
+                (urlFalhou && urlFalhou.startsWith('http') ? `<br><span class="text-[10px] font-mono font-normal break-all text-gray-500">URL testada: ${urlFalhou}</span>` : '');
+        }
+
+        function renderizarGaleria() {
+            const gal = document.getElementById('modal-galeria');
+            gal.innerHTML = '';
+            if (galeriaImagens.length <= 1) {
+                gal.classList.add('hidden');
+                return;
+            }
+            gal.classList.remove('hidden');
+
+            galeriaImagens.forEach((item, idx) => {
+                const btn = document.createElement('button');
+                btn.id = `gal-thumb-${idx}`;
+                btn.className = 'relative rounded-lg border-2 overflow-hidden h-24 bg-gray-100 hover:opacity-90 transition';
+                const img = document.createElement('img');
+                img.src = item.src;
+                img.className = 'w-full h-full object-cover';
+                img.loading = 'lazy';
+                img.onerror = () => {
+                    btn.innerHTML = '❌';
+                    btn.classList.add('flex', 'items-center', 'justify-center', 'text-xl');
+                    debugLog(`Miniatura ${idx + 1} da galeria não carregou`, 'warn');
+                };
+                const num = document.createElement('span');
+                num.className = 'absolute top-1 left-1 text-[9px] font-bold bg-black/60 text-white px-1.5 rounded';
+                num.innerText = idx + 1;
+                btn.appendChild(img);
+                btn.appendChild(num);
+                btn.onclick = () => selecionarImagemGaleria(idx);
+                gal.appendChild(btn);
+            });
+        }
+
+        function selecionarImagemGaleria(idx) {
+            indiceImagemAtiva = idx;
+
+            // destaque visual da miniatura ativa
+            galeriaImagens.forEach((_, i) => {
+                const t = document.getElementById(`gal-thumb-${i}`);
+                if (t) {
+                    t.classList.toggle('border-blue-500', i === idx);
+                    t.classList.toggle('border-transparent', i !== idx);
+                }
+            });
+
+            const img = document.getElementById('modal-img');
+            const erroEl = document.getElementById('modal-erro');
+            erroEl.classList.add('hidden');
+
+            img.onerror = () => {
+                mostrarErroModal(
+                    '❌ Esta imagem não pôde ser carregada do provedor externo (Supabase).<br><br>' +
+                    '<strong>Os pontos e horários continuam salvos</strong> — só a visualização falhou.<br>' +
+                    'Confira se o bucket "comprovantes" do Supabase ainda está marcado como <strong>Public bucket</strong>.',
+                    galeriaImagens[idx].src
+                );
+                img.removeAttribute('src');
+            };
+            img.src = galeriaImagens[idx].src;
         }
 
         function fecharModalImagem() {
             document.getElementById('modal-comprovante').classList.add('hidden');
-            document.getElementById('modal-img').src = '';
+            document.getElementById('modal-img').removeAttribute('src');
+            document.getElementById('modal-erro').classList.add('hidden');
+            document.getElementById('modal-galeria').classList.add('hidden');
+            galeriaImagens = [];
         }
 
+        // NOVO: monta a GALERIA do dia (URLs externas + backups base64 do Firestore)
         async function verComprovanteHistorico(dataStr) {
             const info = indiceComprovantes[dataStr];
-            if (!info) return;
-
-            let url = info.url;
-            if (!url && info.id) {
-                try {
-                    const doc = await comRetryFirestore(() =>
-                        colecaoPontos.doc(dataStr).collection('comprovantes').doc(info.id).get()
-                    );
-                    url = doc.exists ? doc.data().base64 : null;
-                } catch (e) {
-                    debugLog(`Erro ao buscar comprovante de ${dataStr}: ${e.message}`, 'erro');
-                }
-            }
-            if (!url) {
+            if (!info) {
                 alert('A imagem do comprovante não foi encontrada.');
                 return;
             }
-            abrirModalImagem(url, 'Comprovante — ' + formatarDataBR(dataStr));
+
+            galeriaImagens = [];
+
+            // 1) Imagens no provedor externo (Supabase)
+            (info.urls || []).forEach(u => {
+                if (u) galeriaImagens.push({ tipo: 'url', src: u });
+            });
+
+            // 2) Backups base64 no Firestore (busca em paralelo — só quando o usuário clica em "Ver")
+            if ((info.ids || []).length > 0) {
+                const promessas = info.ids.map(async (id) => {
+                    try {
+                        const doc = await comRetryFirestore(() =>
+                            colecaoPontos.doc(dataStr).collection('comprovantes').doc(id).get()
+                        );
+                        if (doc.exists && doc.data().base64) {
+                            return { tipo: 'b64', src: doc.data().base64 };
+                        }
+                    } catch (e) {
+                        debugLog(`Backup de imagem ${id} falhou: ${e.message}`, 'warn');
+                    }
+                    return null;
+                });
+                const resultados = await Promise.all(promessas);
+                resultados.forEach(r => { if (r) galeriaImagens.push(r); });
+            }
+
+            if (galeriaImagens.length === 0) {
+                alert('A(s) imagem(ns) do comprovante não foi(ram) encontrada(s).');
+                return;
+            }
+
+            const qtd = galeriaImagens.length;
+            document.getElementById('modal-titulo').innerText =
+                `Comprovante${qtd > 1 ? 's' : ''} — ${formatarDataBR(dataStr)}${qtd > 1 ? ` (${qtd})` : ''}`;
+            document.getElementById('modal-erro').classList.add('hidden');
+            document.getElementById('modal-comprovante').classList.remove('hidden');
+
+            renderizarGaleria();
+            selecionarImagemGaleria(0);
         }
 
         function limparFila() {
@@ -1818,9 +1943,15 @@
             );
             if (snap.exists) {
                 const d = snap.data();
-                if (identificacao && d.identificacao && d.identificacao === identificacao) {
-                    debugLog(`Item ${item.id} pulado: mesma Identificação de Marcação`, 'warn');
-                    return { desfecho: 'pulada' };
+
+                // NOVO: checa contra o ACUMULADO de identificações do dia (array + legado)
+                if (identificacao) {
+                    const idsAnteriores = Array.isArray(d.identificacoes) ? d.identificacoes : [];
+                    const mesmoComprovante = (d.identificacao === identificacao) || idsAnteriores.includes(identificacao);
+                    if (mesmoComprovante) {
+                        debugLog(`Item ${item.id} pulado: mesma Identificação de Marcação`, 'warn');
+                        return { desfecho: 'pulada' };
+                    }
                 }
                 if (d[campoTipo] === horaStr) {
                     debugLog(`Item ${item.id} pulado: ${tipo} já existe às ${horaStr} em ${dataStr}`, 'warn');
@@ -1828,9 +1959,14 @@
                 }
             }
 
-            // Imagem: cadeia de provedores (Supabase → Cloudinary → Firebase Storage → Firestore)
-            let extras = { identificacao: identificacao, origem: 'comprovante' };
+            // NOVO: imagens ACUMULADAS por dia (arrayUnion) — cada comprovante é adicionado à lista
+            let extras = { origem: 'comprovante' };
             let avisoImagem = null;
+
+            if (identificacao) {
+                extras.identificacao = identificacao; // compatibilidade com checagem legada
+                extras.identificacoes = firebase.firestore.FieldValue.arrayUnion(identificacao);
+            }
 
             const resultadoImg = await enviarImagemItem(item, dataStr, (pct) => {
                 item.erro = `gravando item ${atual}/${total} — imagem ${pct}%`;
@@ -1842,11 +1978,14 @@
             });
 
             if (resultadoImg.ok && resultadoImg.url) {
-                extras.comprovanteUrl = resultadoImg.url;
-                if (resultadoImg.path) extras.comprovantePath = resultadoImg.path;
+                extras.comprovantesUrls = firebase.firestore.FieldValue.arrayUnion(resultadoImg.url);
+                if (resultadoImg.path) {
+                    extras.comprovantesPaths = firebase.firestore.FieldValue.arrayUnion(resultadoImg.path);
+                }
             } else if (resultadoImg.ok) {
                 try {
-                    extras.comprovanteId = await salvarImagemFirestore(dataStr, resultadoImg.base64, identificacao);
+                    const docId = await salvarImagemFirestore(dataStr, resultadoImg.base64, identificacao);
+                    extras.comprovantesIds = firebase.firestore.FieldValue.arrayUnion(docId);
                 } catch (e) {
                     avisoImagem = `imagem não salva (falha no Firestore após retries): ${e.message}`;
                     debugLog(`Item ${item.id}: ${avisoImagem} — ponto será gravado sem imagem`, 'warn');
@@ -2078,6 +2217,11 @@
                 // Firebase Storage
                 if (d.comprovantePath && storagePontos) {
                     await storagePontos.ref().child(d.comprovantePath).delete().catch(() => {});
+                }
+                if (Array.isArray(d.comprovantesPaths) && storagePontos) {
+                    d.comprovantesPaths.forEach(p => {
+                        storagePontos.ref().child(p).delete().catch(() => {});
+                    });
                 }
                 // Nota: deleção no Supabase/Cloudinary exige chaves de admin (não expostas
                 // no navegador) — imagens lá podem ser limpas manualmente nos painéis.
@@ -2335,7 +2479,7 @@
         }
 
         window.onload = function() {
-            debugLog('Sistema carregado (modo lote)', 'ok');
+            debugLog('Sistema carregado (modo lote + galeria)', 'ok');
             if (typeof Tesseract === 'undefined') {
                 debugLog('Tesseract.js NÃO carregou — OCR indisponível (verifique internet/bloqueador)', 'erro');
             }
